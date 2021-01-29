@@ -1,0 +1,10 @@
+<<import head.html Architecture>>
+
+Some portion of what's described here is not yet implemented, however the goal here is to represent what is or will be implemented. If, once implemented, the design is somewhat different, this documentation should be updated to reflect it.
+
+<<TOC
+Architecture/Overview.creole
+Architecture/MPRL.creole
+>>
+
+<<import foot.html>>

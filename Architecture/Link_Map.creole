@@ -1,0 +1,5 @@
+<<import head.html Architecture - Link Map>>
+
+= Link Map
+
+<<import foot.html>>

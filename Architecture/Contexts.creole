@@ -1,0 +1,5 @@
+<<import head.html Architecture - Contexts>>
+
+= Contexts
+
+<<import foot.html>>

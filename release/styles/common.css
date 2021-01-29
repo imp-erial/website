@@ -1,0 +1,69 @@
+html {
+	width: 100%;
+	min-height: 100%;
+
+	background-color: black;
+}
+
+body {
+	margin: 50px 100px;
+	padding: 20px;
+
+	background-color: beige;
+
+	border-radius: 10px;
+}
+
+h1  {
+	text-align: center;
+
+	border-bottom: 1px solid #111;
+}
+
+.center {
+	text-align: center;
+}
+
+ol {
+	list-style-type: none;
+}
+
+ol li:first-child {
+	counter-reset: item;
+}
+
+ol li:before {
+	content: counters(item, ".") " ";
+	counter-increment: item;
+}
+
+.breadcrumbs {
+	display: block;
+}
+
+.breadcrumb:before {
+	content: " \2192  ";
+}
+
+.breadcrumb:first-child:before {
+	content: "";
+}
+
+code {
+	white-space: pre;
+}
+
+pre {
+	margin: 0px 20px;
+	padding: 5px;
+	background-color: #E6E6BF;
+}
+
+tt {
+	padding: 0px 2px;
+	background-color: #E6E6BF;
+}
+
+.highlight-bracket {
+	background-color: purple;
+}

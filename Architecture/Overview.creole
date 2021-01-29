@@ -1,0 +1,118 @@
+<<import head.html Architecture - Overview>>
+
+<<crumbs Architecture -> Overview>>
+<<TOC>>
+
+= Overview
+Imperial uses a [[Architecture/MPRL|MPRL descriptor file]] in order to process data. The data is usually contained in a binary file but could also be in a text file or in multiple of either. 
+
+== Use cases
+Imperial was initially designed for ROM hacking use cases and has a lean towards solving those and making those easiest. However, since the needs of ROM hacking are so diverse, this system should also be able to handle most other cases of handling binary/text files and will seek to do so, to a reasonable extent.
+
+=== ROM hacking
+As a ROM hacker, I need to extract resources from ROMs and reinsert alterations. The alterations should be relatively easy to make such as by allowing me to use familiar tools for making them.
+
+I don't want to write custom tools for extracting and re-inserting resources, especially when the resource formats for a system are largely standardized but existing tools won't work for my case.
+
+I want my hacks to be "open source" so that others can improve them, collaborate, or make different language translations of them yet still avoid potential legal consequences of representing any copyrighted material in my project files.
+
+=== Homebrew development
+As a homebrew developer, I want a system which can build both my code and my resources into a ROM in a sane way. It can take advantage of existing tools or replace them entirely.
+
+If the build file is not a MPRL file, I want the build process to produce one which can be used for extracting the contents of the assembled ROM, similar to producing debugging artifacts.
+
+=== Binary formats
+As an archivist/PC game hacker/etc, I want to be able to deconstruct whole binary files into: information, other files, and/or a different whole file.
+
+As a developer, I want to be able to write applications which accept a MPRL descriptor of a file format in order to use that file in a normalized way (for example, as an image), without the application understanding the original format.
+
+Similarly, I want to be able to write applications which interact with a specific format written in a MPRL descriptor shipped with the program, as a way of interacting with those files simply.
+
+== Where data is
+Data can either be directly defined in a key in the MPRL file itself, sourced from some other file that it's describing, or stored in memory. Of course, an application can also set its own values into keys from wherever.
+
+The primary locations in memory are a key's cache, a struct's basic cache, or some form of transitional packed data. Struct names can be considered data in some senses, as well.
+
+== Data flow charts
+For ease of representation, the charts which relate to accessing external data only describe the process for binary files, but they should apply equally to text files.
+
+=== Fetching from a key
+Assuming a value that is not sourced externally, this is the method of retrieving a key's data for both dynamic and static structs. Note that inherited keys must be castable and must not be hidden.
+
+<<mermaid
+graph TD
+    subgraph Dynamic
+        Definable{{Is definable?}} -->|yes| Defined
+        Defined{{Is defined?}} -->|no| Inherited
+        Inherited{{Is in an ancestor?}} -->|no| HasDefault
+        HasDefault{{Can default?}} -->|no| error
+        Definable --->|no| error
+        Defined -->|yes| return
+        Inherited -->|yes| cast
+        cast[Cast inherited value to local type] --> return
+        HasDefault -->|yes| CalcDefault
+        CalcDefault[Calculate default value] --> return
+    end
+    subgraph Static
+        SDefined{{Is defined?}} -->|no| serror[error]
+        SDefined -->|yes| sreturn[return]
+    end
+>>
+
+=== Extracting data
+Here we assume that A is some struct defined in the root of the MPRL file. It has a key, x, which represents some data from the source file. Thus, x must be pulled from the source file before being accessible to the application. It does this for every piece of data requested, the first time it's requested, and is able to continue loading A from where it left off last time.
+
+<<mermaid
+graph TD
+    LoadMPRL[Load MPRL file] --> start
+    SelectBinary[Select binary file] --> start
+    ReturnX -..-> start
+    start --> AppWantX
+    AppWantX[Try to fetch datum x from root struct A] --> IsXLoaded
+    IsXLoaded{A, is x loaded?}
+    IsXLoaded -->|no| LoadX1[Ask root where A exists in binary]
+    LoadX1 --> LoadX2[Load A from binary until x is defined]
+    LoadX2 --> ReturnX[Return x]
+    IsXLoaded -->|yes| ReturnX
+>>
+
+=== Committing data
+A way to think of this process is that only contexts ever commit any data, they simply use their descendents to construct their packed form.
+
+<<mermaid
+graph TD
+    subgraph SlzChildr [Serialize children]
+        PlaceIt[Place in context's serialization] ---> HasMore
+        HasMore{{Has another child?}} -->|yes| child.serialize
+        child.serialize --> GetLocators
+        GetLocators[Get locator keys] --> PlaceIt
+    end
+    HasMore -->|no| SlzContext
+    SlzContext[Serialize context] --> IsRoot
+    IsRoot{{Is this the root?}} -->|yes| WriteOut
+    IsRoot --->|no| return
+    WriteOut[Write to binary]
+    return[Return serialization to parent context]
+>>
+
+=== Changing data in memory
+Note that when it invalidates a key (which wasn't already invalidated), it restarts this loop for that key.
+
+This verges into the [[Architecture/Link Map|link map]] but represents something of a simplified overview of the intentions of it. See that page for an explanation of why these things are happening.
+
+<<mermaid
+graph TD
+    UpdateData[Update/invalidate key] --> WasUsedInCalc
+    WasUsedInCalc{{Was used in calculating others' defaults?}} -->|yes| InvalidateCalc
+    WasUsedInCalc --->|no| WasInherited
+    InvalidateCalc[Invalidate those keys] --> WasInherited
+    WasInherited{{"Was inherited by some descendent(s)?"}} -->|yes| InvalidateChildren
+    WasInherited --->|no| RanBcMember
+    InvalidateChildren[Invalidate those descendents' keys] --> RanBcMember
+    RanBcMember{{Is this being invalidated by a fellow member of a reference group?}} -->|no| WasReferenced
+    WasReferenced{{"Was referenced directly?"}} -->|yes| InvalidateRefGroup[Invalidate all members of reference group]
+    WasReferenced --->|no| Referenced
+    Referenced{{Referenced something else?}} -->|yes| InvalidateTarget[Invalidate target of reference only]
+>>
+
+<<import foot.html>>

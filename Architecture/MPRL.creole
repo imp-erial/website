@@ -1,0 +1,389 @@
+<<import head.html Architecture - MPRL>>
+
+<<crumbs Architecture -> MPRL>>
+<<TOC>>
+
+= MPRL
+MPRL or the "Modelling Packed Resources" Language is a [[https://en.wikipedia.org/wiki/Reactive_programming|declarative language]] meant to describe complex, generally packed data structures. It is meant to ascribe computationally useful meaning to this data so that it can be, for instance, translated into a presentable format.
+
+== Terminology
+;Root
+: A whole MPRL file is represented as an instance of a root object. What the root object is depends on what the MPRL file is supposed to be used against. If used against a file, the root is a binary context (type **bin**); if used against a folder, the root is a folder context. An MPRL file does not require the author to explicitly specify a root struct. They can, but it's redundant.
+
+;Struct
+: A struct refers to any object instantiated by directly specifying its type in the MPRL file. While even data specified inline can be accessed as you would a struct (and is implemented as a struct), we'll generally make this distinction when talking about MPRL files.
+
+;Key
+: Keys can only be defined in structs which are instantiated using curly braces. They're of the form ##name\: value## whose restrictions will be discussed in the [[#Keys|keys section]].
+
+;Static
+: Static structs are a basic collection of key-value pairs like any object notation (for example, JSON). The keys and values are arbitrary, meaning that there are no restrictions on what or how many you can define and no inherent meaning.
+: Static data is data which exists upon completion of some application loading the MPRL file, such as data which is defined directly in that MPRL file. Specifically, data that exists despite the lack of a source.
+
+;Dynamic
+: Dynamic structs have meaning, they represent something specific and all of their keys have a purpose. All structs which interact with external files are dynamic, but this is not the only kind of dynamic struct.
+: Dynamic data is data which is sourced from an external source or (even partially) derived from data which is. This external source may be, for Example\: a binary file or user input.
+
+;Inheritance
+: When a key is not defined in a struct it can be inherited from the parent. That is, it can use the value defined in the nearest ancestor which defines it, cast it to its own type, and return it as its own.
+
+;References
+: References connect one key (or entry in a list) to another such that they share data. Data which is pulled in to the referencing key is cast to the key's type before being usable. References can point to top-level structs, substructs, keys, or list elements.
+
+== Comments
+Comments may be located anywhere except within a string, despite what other sections' wordings may imply. They are specified by a crosshatch (##\###) and run to the end of the line.
+
+There is currently no multiline version planned, though there may be in the future. Comments should have whitespace between the # and the comment text but it's not required.
+
+== Structs
+Structs declare a type when they're defined. There are two general classes of types: dynamic and static, as defined [[#Terminology|above]]. If the struct is being defined as a root or child struct (as opposed to being in a key, etc), it may also declare a name.
+
+The basic form of a struct is:
+<<code mprl
+type StructName {
+	key: value
+	key2: value2
+	# ... more keys, children ...
+}
+>>
+
+Any struct which has a name can be referenced and the name must be unique within its parent. If a struct does not have a name but its child does, that child's name exists in the namespace of the first ancestor with a name (or the root). The implications of this will be further discussed in the [[#References|references]] section.
+
+Dynamic structs control which structs are allowed to be children of it because they control how their children access dynamic data. Despite this, static structs may be a child of any struct, even dynamic ones. In this situation, the static may only have children which would be allowed in the parent.
+
+If a dynamic struct provides a new source of data for its descendants, it's called a [[Architecture/Contexts|context]]. Contexts control the definition of locator keys which, despite this, are declared inside the descendants. These special keys are used by the context to provide the descendant with a packed blob of data to interpret however it must.
+
+=== Structs as values
+When using a struct in place of a value, there are two ways to define it: normally or by basic value only. When the basic value is a list, the parenthesis are optional.
+
+<<code mprl
+static Example {
+	normal: type {
+		keys: go here
+	}
+	basic1: type(Basic goes here)
+	basic2: type[Basic, is, a, list]
+	basic3: type([Basic, is, a, list])  # Same as basic2.
+}
+>>
+
+These may be referred to as a keystruct when they're the value of a key. However, they can also be declared as an element in a list or as the value in a different struct declaration using the basic version. This latter case is called [[Architecture/Value proxying|value proxying]].
+
+<<code mprl
+static Example {
+	proxy: string(number(1))
+	"same meaning": "1"
+}
+>>
+
+=== Hierarchical relationships
+Structs exist in both a hierarchy and a linear organization. This implies that all structs and all keys are (separately) ordered within their parent. Depending on the parent, the order may or may not actually matter, but they still are ordered.
+
+The relationships out of one struct consists of:
+* this: what @this points to, if different from self
+* parent: what @parent points to
+* benefactor: what a struct inherits from
+* container: what a struct was defined in (could be a struct or a key..)
+* donor: what a struct was cloned from, if anything
+* manager: the struct which federates this one's access to the outside world
+
+//this// is different from //self// (and similarly //parent// from //container//) when a struct is declared without curly braces. This includes lists defined by their syntacic constructions as well as structs declared with parenthesis or square brackets.
+
+//benefactor// is generally either the parent or None. For an example of the latter, keystructs have no benefactor.
+
+//manager// is typically going to be the nearest ancestor which is a dynamic struct. For clones, it's typically whatever cloned it, given that it didn't force itself to be cloned. The manager's context is what supplies locator keys.
+
+Finally, there is a notion of linear ordering to structs which can be tricky. If the root has two basic structs, it's simply the order they're defined in. But given this case:
+
+<<code mprl
+graphic A {
+	# The @ here is the promotion operator.
+	# Conceptually, it promotes the struct to be an elder sister to A,
+	# and replaces the definition in the key with a reference to it.
+	width: number @{ size: 2 }
+	height: number @{ size: 2 }
+}
+>>
+
+The linear order is: A.width, A.height, then A. This ideology can be used in different situations, but for unserializing binary data, this implies the order in the binary source data (two 2-byte integers followed by a graphic of those dimensions). For free structs, the manager will decide their linear order, but typically it can be thought of as like: parent, child 1, child 2, parent's next sibling.
+
+== Keys
+In static structs they work like any object notation and can be arbitrarily named and contain arbitrary data. They can be named as a symbol (a restricted literal) which can be referred to by references or they can be numbers (including hexadecimal numbers) or quoted strings.
+
+If a key is not declared, it will attempt to inherit it then attempt to calculate the default value. Like so:
+
+<<mermaid
+graph TD
+    RequestKey[Request key from struct which doesn't declare it] -->
+    CheckParent{{Next parent has key?}} -->|yes| CanCast
+    CheckParent -.->|no| CheckParent
+    CanCast{{Cast to local key succeeds?}} -->|yes| return
+    CanCast -->|no| Default[Calculate default value]
+>>
+
+If either the requesting struct or the ancestor being checked is dynamic, we must consider localizations of the key name. If calculating the default fails (such as by not having any default, or other required keys not being declared), an error must be thrown but it doesn't have to kill the application.
+
+When a key is declared or when it's set from sourced data, inherited, or pulled through a reference, it can accept a loose form of the value, but it must return a normalized form when requested. When declared (that is, in the MPRL file, with something other than a struct declaration as the value), it may accept a different set of values from when otherwise set, typically some shorthand form of declaring the struct.
+
+== Strings
+Strings represent literal text. They may be quoted or not (with limitations) or they can use the special multiline quoting style. Quoted strings can contain escape sequences
+
+=== Single-line strings
+There are two quoting methods for single-line strings: surrounding quotation marks and dash quotes.
+
+<<code mprl
+static Example {
+	quoted: "allows commas, and other stuff unquoted can't @{}[]():#"
+	dashed: -- this will even eat commas, # comments, etc. Be careful!
+	# Only a newline can end dashed strings!
+}
+>>
+
+The available quotes for single-line strings should include all [[https://en.wikipedia.org/wiki/Quotation_mark#Summary_table|valid quoting methods from every reasonable language]] (an example of an unreasonable language would be Lojban, since it uses words to quote).
+
+A summary of quote pairs are as follows:
+;Double quote forms (English, Dutch, Afrikaans, etc) Lower closing (Hebrew)
+: "" ““ “” ”” ”„ ‟‟ ‟”
+;Single quote forms
+: '' ‘‘ ‘’ ’’ ’‘ ’‚ ‛‛ ‛’
+;CJK quotes
+: 『』 「」
+;Forms with lower opening (Albanian, Czech, German, etc)
+: ‚’ ‚‘ „“ „”
+;Guillemets (Russian, Finnish, Hungarian, etc)
+: «» »« »» ‹› ›‹
+;Dash quotes (Polish, Greek, etc)
+: – — ― --
+
+=== Multiline strings
+One may use any number of backticks (##`##) to begin a multiline string. A segment ends when that same amount is encountered again, after encountering something other than a backtick (that is, each segment must contain something, they are incapable of being empty). Sequential multiline string segments will automatically concatenate, so in order to separate two distinct multiline strings, they must be separated by an explicit comma. Comments do not separate them.
+
+<<code mprl
+static Example {
+	key: ```three ticks``` # A comment is fine!
+	``part of "key"
+	still part of "key"``
+	# The line break and indentation between the double backticks is part of the string value.
+
+	"in a list": [
+		`first element`
+		`also first element`,
+		`second element`
+	]
+}
+>>
+
+=== Escape sequences
+There are three forms of escape sequences. While they are meant to represent what they're named as, they all translate to unicode codepoints.
+
+<<code mprl
+static Example {
+	bytes: "$05$55$1a"
+	codepoints: "$(1f3f4)$(200d)$(2620)$(fe0f)"
+	specials: "$$ $" $z $n $r $t"
+}
+>>
+
+Although currently only a sequence of hexadecimal digits are used within parenthesis, everything until the next ##)## besides a valid ending quote for this string should be considered part of the request and error accordingly. In the future, it may be possible to expand this to support character names, such as the abbreviations defined by Unicode or W3C.
+
+All Latin letters (besides hexadecimal ones) should be considered potential special characters. Anything else following a ##$## should error.
+
+Defined special characters include the following:
+* $ = literal "$"
+* any quote character = literal quote character
+* z = NULL, zero, $(0)
+* n = newline, line feed, $(d)
+* r = carriage return, $(a)
+* t = tab, $(9)
+
+=== Literals
+Literals are unquoted, single-line strings. They're intended to be used for simple words or phrases which have some meaning to the key they're being used in, but since we cannot predict all those keywords they're fairly open-ended. Authors should, however, prefer quoted strings for prose and other arbitrary text.
+
+The restrictions are: literals cannot start with any quotation mark, cannot be a range or number etc, do not contain escape sequences, and cannot contain any of the following characters: ##[ ] { } ( ) # : ,##
+
+Invalid characters may interrupt the literal, cause it to actually be a value struct, or be an actual error, depending on where it's placed. Dollar signs (##$##) are interpreted as the literal character rather than an escape sequence, because literals do not contains escape sequences as there's no need for keywords to use characters that would need to be escaped.
+
+<<code mprl
+static Example {
+	keyword: true
+	annoying: Don't use prose but it works I guess. Yes that apostrophe does work.
+	"in a list": [
+		first element
+		second element
+	]
+}
+>>
+
+== Numbers
+There are two numerical forms for general use: decimal and hexadecimal. Everyone should memorize hex -> binary anyway and octal is only useful for chmod. If a key or type needs a different base or some other type of number (negative, fractional, etc), it can interpret it from a [[#Literals|literal]].
+
+Decimal is as expected, just 0-9 digits sequentially. There is currently no separator such as ##_## in Python and JavaScript because large decimal numbers are not expected.
+
+Hexadecimal is specified with a prefix of ##$## which is a typical addressing marker and, coming from a ROM hacking perspective, hexnums will typically be used as the //base// for serializable structs.
+
+<<code mprl
+static Example {
+	decimal: 12345
+	hexdec: $12abc
+}
+>>
+
+== Lists
+Lists are arbitrary sequences of values. A typical list starts with a left square bracket (##[##) and end with a right square bracket (##]##). Values inside a list may be separated by commas or newlines and comments are allowed. However there are also list-creating operators and ranges.
+
+<<code mprl
+static Example {
+	# All these values are functionally equivalent.
+	normal1: [1, 2, 3]
+	normal2: [
+		1
+		2
+		3
+	]
+	range1: 1~3
+	range2: 1+2
+	concat: 1:2:3
+}
+>>
+
+While the keys in the above example ultimately evaluate the same if you were to convert them to a Python list type, they're stored differently and have different functions (other than the two **normal** keys). Ranges store only what's specified, their contents are virtual. Concatenation operators may or may not collapse values into an actual list depending on implementation, but they must support something like ##1:2~3## being a number and an actual range, despite evaluating to ##[1, 2, 3]##.
+
+For in-progress design information on lists, see [[https://proposals.imperial.logicplace.com/core/list.html|this proposal]].
+
+=== Ranges
+Ranges can be between either decimal or hexadecimal numbers. The two numbers do not have to be the same base. There are four range operators available, but for future-proofing, any combination of symbols besides ones containing and quotation mark or the following should be considered a potential range operator: ##[ ] { } ( ) # : , . _ $##
+
+The defined operators are:
+;##~## or ##-##
+: Inclusive range from the first number to the second. Can go forwards or backwards.
+: Example\: {{{ 1-5 => [1, 2, 3, 4, 5] }}}
+;##*##
+: Repeat the first number the second number of times.
+: Example\: {{{ 2*4 => [2, 2, 2, 2] }}}
+;##+##
+: An exclusive list from the first number to the sum of the two numbers.
+: Another way to think about this: a list counting up from the first number which contains the second number of elements.
+: Example\: {{{ 4+2 => [4, 5] }}}
+;##+-## or ##±##
+: Same as ##+## but counts down. That is, the second number could be considered negative.
+: Example\: {{{ 6+-3 => [6, 5, 4] }}}
+
+=== Concatenation
+There are two concatenation operators, concat (##:##) and cons (##::##). Any number of sequential colons should be considered potential concatenation operators (and error appropriately), but no others will be defined.
+
+Concat makes a flat list of the values. Examples as follows:
+{{{
+1:2           => [1, 2]
+[1, 2]:3      => [1, 2, 3]
+1:[2, 3]      => [1, 2, 3]
+[1, 2]:[3, 4] => [1, 2, 3, 4]
+}}}
+
+Cons takes the left-hand value as a whole first element, even if it's a list. Equivalent to ##[lvalue]:rvalue##.
+{{{
+1::2           => [1, 2]
+[1, 2]::3      => [[1, 2], 3]
+1::[2, 3]      => [1, 2, 3]
+[1, 2]::[3, 4] => [[1, 2], 3, 4]
+[1, 2]::3::4   => [[[1, 2], 3], 4]
+1:[2, 3]::4    => [[1, 2, 3], 4]
+1::[2, 3]:4    => [1, 2, 3, 4]
+}}}
+
+== References
+See [[https://proposals.imperial.logicplace.com/syntax/references.html|this proposal]] for more information.
+
+== Syntax
+Copy over syntax definition from RPL_Syntax and probably make a summary
+
+=== Grammar summary key
+
+* . = Match any character except newline.
+* $ = Match bounds before a valid newline.
+* # ... = Comment.
+* A = Match pattern named A.
+* A? = Match 0 or 1 repetitions of pattern A.
+* A* = Match 0 or more repetitions of pattern A.
+* A+ = Match 1 or more repetitions of pattern A.
+* A{x} = Match exactly x repetitions of pattern A.
+* A{x,y} = Match between x and y repetitions of pattern A. x defaults to 0 and y defaults to infinity.
+* (A B) = Group A and B, so as to repeat them together, etc.
+* A. = Glue A to next pattern in the rule; meaning no whitespace between them.
+* .A = Glue A to previous pattern in the rule.
+* .* = Match some number of characters which are not newline, all glued together. Works for all repetition operators.
+* A .(B)* = Glue A to first repetition of B, if any. Works for all repetition operators. Same as ##A. (B)*##
+* A (B).* = Glue all repetitions of B together, if any. Works for all repetition operators.
+* (B)*. C = Glue last repetition of B, if any, to C. Works for all repetition operators. Same as ##(B)* .C##
+* A | B = A or B.
+* A - B = A but not B.
+* A[B] = B's version of A (B must be used elsewhere in the rule).
+* A = {B: ..., C: ...} = How to define B and C's version of A. Addressing A directly acts like (B | C)
+* "x" = Terminal matching the string ##x##.
+* 'x' = Terminal matching the string ##x##.
+* [...] = Character group, same as RegEx but without any defined character classes.
+* /.../ = Unicode-enabled Perl Regular Expression.
+* EOL = End of line; marked by an explicit comma, any valid newline, the start of a comment, or the end of the file.
+* EOP = End of parent rule.
+
+=== Grammar summary
+Whitespace can go between patterns which aren't glued.
+
+Full width, bolded, etc. characters are equivalent to their ASCII counterparts. This is not true for semantically distinct characters, though, like Roman numeral Ⅰ should not be the same as Latin letter I. For other established normalizations, they should be explicitly mentioned.
+
+If the first letter of a rule name is uppercase, it's intended to represent a non-terminal; while lowercase is intended to represent a terminal.
+
+<<code yabnf
+Root = (Struct | Comment)*
+
+comment  = "#" .* $
+digit    = [0-9]
+hexdigit = [0-9a-fA-F]
+
+Struct      = type name? StructBody
+ValueStruct = type "@"?. (StructBody | "(" Value ")" | List)
+StructBody  = "{" (HiddenKeys | Key | Struct | comment)* "}"
+HiddenKeys  = "{" Key+ "}"
+Key         = keyName ":" Value (EOL | EOP)
+
+Atomic = String | Number | HexNum | Literal
+Value  = Reference | List | Range | ValueStruct | Atomic
+Values = Value (("::" | ":") Value)*
+
+Number      = digit+
+HexNum      = "$". hexdigit+
+Literal     = (literalChar - lQuote - rQuote - "`"). (literalChar).*
+literalChar = . - "[" - "]" - "{" - "}" - "(" - ")" - "::" - ":" - "," - "#"
+List        = "[" comment* (Values EOL)* "]"
+Range       = (Number | HexNum). rangeMark. (Number | HexNum)
+rangeMark   = "~" | "-" | "*" | "+" | "+-" | "±"
+
+# The parser could accept comments within any brackets here but it's not
+# required to, nor is it recommended that authors ever use that ability.
+Reference = "@" (."(" RefBody ")" | ."[" RefBody "]" | RefBody)
+RefBody   = (name | RefChild) (RefChild | RefIndex | RefKey)*
+RefKey    = ("." | "-" | "─" | "->") keyName
+RefIndex  = "[" (Atomic | Reference) "]"  # Although these are the only valid contents, the parser
+RefChild  = "{" name "}"                  # could allow <Values> here in order to error properly.
+
+String          = QuotedString ｜ MultilineString
+QuotedString    = lQuote. (Escape | . - rQuote).*. rQuote[lQuote]
+MultilineString = (/(`+)[\s\S]+?\1/ comment*)+
+Escape          = "$". (hexdigit{2} | "(" hexdigit+ ")" | [g-zG-Z])
+lQuote          = ["“”‟‘’‛『「‚„«»‹›–—―] | "--"
+rQuote          = {
+	'"': '"', '“': [“”], '”': [”„], '‟': [‟”],
+	"'": "'", "‘": [‘’], "’": [’‘‚], "‛": [‛’],
+	"『": "』", "「": "」",
+	"‚": [’‘], "„": [“”],
+	"«": "»", "»": [«»], "‹": "›", "›": "‹",
+	"–": $, "—": $, "―": $, "--": $
+}
+
+symbol = /\w[\w\d]*/
+name   = /[\w_][\w\d_]*/
+
+# The following <symbol> uses are informally restricted to being a simple form which
+# is a single script (such as lowercase) and then optionally followed by digits.
+keyName = symbol | (Atomic - Literal)
+type    = symbol. (".". symbol)*
+>>

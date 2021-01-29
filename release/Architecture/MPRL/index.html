@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Imperial Exchange - Architecture</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+	<script type="text/javascript" src="../../scripts/common.js"></script>
+	<link rel="stylesheet" type="text/css" href="../../styles/common.css">
+	<link rel="stylesheet" type="text/css" href="../../styles/zenburn.css">
+</head>
+<body>
+<div class="breadcrumbs"><span class="breadcrumb"><a href="../../Architecture">Architecture</a></span><span class="breadcrumb">MPRL</span></div>
+<ol>
+    <li><a href="#MPRL">MPRL</a></li>
+<ol>
+    <li><a href="#Terminology">Terminology</a></li>
+    <li><a href="#Comments">Comments</a></li>
+    <li><a href="#Structs">Structs</a></li>
+<ol>
+    <li><a href="#Structs_as_values">Structs as values</a></li>
+    <li><a href="#Hierarchical_relationships">Hierarchical relationships</a></li>
+</ol>
+    <li><a href="#Keys">Keys</a></li>
+    <li><a href="#Strings">Strings</a></li>
+<ol>
+    <li><a href="#Singleline_strings">Single-line strings</a></li>
+    <li><a href="#Multiline_strings">Multiline strings</a></li>
+    <li><a href="#Escape_sequences">Escape sequences</a></li>
+    <li><a href="#Literals">Literals</a></li>
+</ol>
+    <li><a href="#Numbers">Numbers</a></li>
+    <li><a href="#Lists">Lists</a></li>
+<ol>
+    <li><a href="#Ranges">Ranges</a></li>
+    <li><a href="#Concatenation">Concatenation</a></li>
+</ol>
+    <li><a href="#References">References</a></li>
+    <li><a href="#Syntax">Syntax</a></li>
+<ol>
+    <li><a href="#Grammar_summary_key">Grammar summary key</a></li>
+    <li><a href="#Grammar_summary">Grammar summary</a></li>
+</ol>
+</ol>
+</ol>
+<h1><a name="MPRL">MPRL</a></h1>
+
+<p>MPRL or the "Modelling Packed Resources" Language is a <a href="https://en.wikipedia.org/wiki/Reactive_programming">declarative language</a> meant to describe complex, generally packed data structures. It is meant to ascribe computationally useful meaning to this data so that it can be, for instance, translated into a presentable format.</p>
+
+<h2><a name="Terminology">Terminology</a></h2>
+
+<dl>
+  <dt>Root</dt>
+    <dd></dd>
+    <dd>A whole MPRL file is represented as an instance of a root object. What the root object is depends on what the MPRL file is supposed to be used against. If used against a file, the root is a binary context (type <strong>bin</strong>); if used against a folder, the root is a folder context. An MPRL file does not require the author to explicitly specify a root struct. They can, but it's redundant.</dd>
+</dl>
+<dl>
+  <dt>Struct</dt>
+    <dd></dd>
+    <dd>A struct refers to any object instantiated by directly specifying its type in the MPRL file. While even data specified inline can be accessed as you would a struct (and is implemented as a struct), we'll generally make this distinction when talking about MPRL files.</dd>
+</dl>
+<dl>
+  <dt>Key</dt>
+    <dd></dd>
+    <dd>Keys can only be defined in structs which are instantiated using curly braces. They're of the form <tt>name\</tt></dd>
+    <dd>value<tt> whose restrictions will be discussed in the <a href="#Keys">keys section</a>.</tt></dd>
+</dl>
+<dl>
+  <dt>Static</dt>
+    <dd></dd>
+    <dd>Static structs are a basic collection of key-value pairs like any object notation (for example, JSON). The keys and values are arbitrary, meaning that there are no restrictions on what or how many you can define and no inherent meaning.</dd>
+    <dd>Static data is data which exists upon completion of some application loading the MPRL file, such as data which is defined directly in that MPRL file. Specifically, data that exists despite the lack of a source.</dd>
+</dl>
+<dl>
+  <dt>Dynamic</dt>
+    <dd></dd>
+    <dd>Dynamic structs have meaning, they represent something specific and all of their keys have a purpose. All structs which interact with external files are dynamic, but this is not the only kind of dynamic struct.</dd>
+    <dd>Dynamic data is data which is sourced from an external source or (even partially) derived from data which is. This external source may be, for Example\</dd>
+    <dd>a binary file or user input.</dd>
+</dl>
+<dl>
+  <dt>Inheritance</dt>
+    <dd></dd>
+    <dd>When a key is not defined in a struct it can be inherited from the parent. That is, it can use the value defined in the nearest ancestor which defines it, cast it to its own type, and return it as its own.</dd>
+</dl>
+<dl>
+  <dt>References</dt>
+    <dd></dd>
+    <dd>References connect one key (or entry in a list) to another such that they share data. Data which is pulled in to the referencing key is cast to the key's type before being usable. References can point to top-level structs, substructs, keys, or list elements.</dd>
+</dl>
+<h2><a name="Comments">Comments</a></h2>
+
+<p>Comments may be located anywhere except within a string, despite what other sections' wordings may imply. They are specified by a crosshatch (<tt>\</tt>#) and run to the end of the line.</p>
+
+<p>There is currently no multiline version planned, though there may be in the future. Comments should have whitespace between the # and the comment text but it's not required.</p>
+
+<h2><a name="Structs">Structs</a></h2>
+
+<p>Structs declare a type when they're defined. There are two general classes of types: dynamic and static, as defined <a href="#Terminology">above</a>. If the struct is being defined as a root or child struct (as opposed to being in a key, etc), it may also declare a name.</p>
+
+<p>The basic form of a struct is:
+<pre><code class="mprl">type StructName &#123;
+	key: value
+	key2: value2
+	# ... more keys, children ...
+&#125;
+</code></pre>
+</p>
+
+<p>Any struct which has a name can be referenced and the name must be unique within its parent. If a struct does not have a name but its child does, that child's name exists in the namespace of the first ancestor with a name (or the root). The implications of this will be further discussed in the <a href="#References">references</a> section.</p>
+
+<p>Dynamic structs control which structs are allowed to be children of it because they control how their children access dynamic data. Despite this, static structs may be a child of any struct, even dynamic ones. In this situation, the static may only have children which would be allowed in the parent.</p>
+
+<p>If a dynamic struct provides a new source of data for its descendants, it's called a <a href="../../Architecture/Contexts">context</a>. Contexts control the definition of locator keys which, despite this, are declared inside the descendants. These special keys are used by the context to provide the descendant with a packed blob of data to interpret however it must.</p>
+
+<h3><a name="Structs_as_values">Structs as values</a></h3>
+
+<p>When using a struct in place of a value, there are two ways to define it: normally or by basic value only. When the basic value is a list, the parenthesis are optional.</p>
+
+<pre><code class="mprl">static Example &#123;
+	normal: type &#123;
+		keys: go here
+	&#125;
+	basic1: type(Basic goes here)
+	basic2: type[Basic, is, a, list]
+	basic3: type([Basic, is, a, list])  # Same as basic2.
+&#125;
+</code></pre>
+<p>These may be referred to as a keystruct when they're the value of a key. However, they can also be declared as an element in a list or as the value in a different struct declaration using the basic version. This latter case is called <a href="../../Architecture/Value_proxying">value proxying</a>.</p>
+
+<pre><code class="mprl">static Example &#123;
+	proxy: string(number(1))
+	&quot;same meaning&quot;: &quot;1&quot;
+&#125;
+</code></pre>
+<h3><a name="Hierarchical_relationships">Hierarchical relationships</a></h3>
+
+<p>Structs exist in both a hierarchy and a linear organization. This implies that all structs and all keys are (separately) ordered within their parent. Depending on the parent, the order may or may not actually matter, but they still are ordered.</p>
+
+<p>The relationships out of one struct consists of:</p>
+
+<ul>
+    <li>this: what @this points to, if different from self</li>
+    <li>parent: what @parent points to</li>
+    <li>benefactor: what a struct inherits from</li>
+    <li>container: what a struct was defined in (could be a struct or a key..)</li>
+    <li>donor: what a struct was cloned from, if anything</li>
+    <li>manager: the struct which federates this one's access to the outside world</li>
+</ul>
+<p><em>this</em> is different from <em>self</em> (and similarly <em>parent</em> from <em>container</em>) when a struct is declared without curly braces. This includes lists defined by their syntacic constructions as well as structs declared with parenthesis or square brackets.</p>
+
+<p><em>benefactor</em> is generally either the parent or None. For an example of the latter, keystructs have no benefactor.</p>
+
+<p><em>manager</em> is typically going to be the nearest ancestor which is a dynamic struct. For clones, it's typically whatever cloned it, given that it didn't force itself to be cloned. The manager's context is what supplies locator keys.</p>
+
+<p>Finally, there is a notion of linear ordering to structs which can be tricky. If the root has two basic structs, it's simply the order they're defined in. But given this case:</p>
+
+<pre><code class="mprl">graphic A &#123;
+	# The @ here is the promotion operator.
+	# Conceptually, it promotes the struct to be an elder sister to A,
+	# and replaces the definition in the key with a reference to it.
+	width: number @&#123; size: 2 &#125;
+	height: number @&#123; size: 2 &#125;
+&#125;
+</code></pre>
+<p>The linear order is: A.width, A.height, then A. This ideology can be used in different situations, but for unserializing binary data, this implies the order in the binary source data (two 2-byte integers followed by a graphic of those dimensions). For free structs, the manager will decide their linear order, but typically it can be thought of as like: parent, child 1, child 2, parent's next sibling.</p>
+
+<h2><a name="Keys">Keys</a></h2>
+
+<p>In static structs they work like any object notation and can be arbitrarily named and contain arbitrary data. They can be named as a symbol (a restricted literal) which can be referred to by references or they can be numbers (including hexadecimal numbers) or quoted strings.</p>
+
+<p>If a key is not declared, it will attempt to inherit it then attempt to calculate the default value. Like so:</p>
+
+<div class="mermaid">graph TD
+    RequestKey[Request key from struct which doesn't declare it] -->
+    CheckParent{{Next parent has key?}} -->|yes| CanCast
+    CheckParent -.->|no| CheckParent
+    CanCast{{Cast to local key succeeds?}} -->|yes| return
+    CanCast -->|no| Default[Calculate default value]
+</div><p>If either the requesting struct or the ancestor being checked is dynamic, we must consider localizations of the key name. If calculating the default fails (such as by not having any default, or other required keys not being declared), an error must be thrown but it doesn't have to kill the application.</p>
+
+<p>When a key is declared or when it's set from sourced data, inherited, or pulled through a reference, it can accept a loose form of the value, but it must return a normalized form when requested. When declared (that is, in the MPRL file, with something other than a struct declaration as the value), it may accept a different set of values from when otherwise set, typically some shorthand form of declaring the struct.</p>
+
+<h2><a name="Strings">Strings</a></h2>
+
+<p>Strings represent literal text. They may be quoted or not (with limitations) or they can use the special multiline quoting style. Quoted strings can contain escape sequences</p>
+
+<h3><a name="Singleline_strings">Single-line strings</a></h3>
+
+<p>There are two quoting methods for single-line strings: surrounding quotation marks and dash quotes.</p>
+
+<pre><code class="mprl">static Example &#123;
+	quoted: &quot;allows commas, and other stuff unquoted can&#39;t @&#123;&#125;[]():#&quot;
+	dashed: -- this will even eat commas, # comments, etc. Be careful!
+	# Only a newline can end dashed strings!
+&#125;
+</code></pre>
+<p>The available quotes for single-line strings should include all <a href="https://en.wikipedia.org/wiki/Quotation_mark#Summary_table">valid quoting methods from every reasonable language</a> (an example of an unreasonable language would be Lojban, since it uses words to quote).</p>
+
+<p>A summary of quote pairs are as follows:</p>
+
+<dl>
+  <dt>Double quote forms (English, Dutch, Afrikaans, etc) Lower closing (Hebrew)</dt>
+    <dd></dd>
+    <dd>"" &#8220;&#8220; &#8220;&#8221; &#8221;&#8221; &#8221;&#8222; &#8223;&#8223; &#8223;&#8221;</dd>
+  <dt>Single quote forms</dt>
+    <dd></dd>
+    <dd>'' &#8216;&#8216; &#8216;&#8217; &#8217;&#8217; &#8217;&#8216; &#8217;&#8218; &#8219;&#8219; &#8219;&#8217;</dd>
+  <dt>CJK quotes</dt>
+    <dd></dd>
+    <dd>&#12302;&#12303; &#12300;&#12301;</dd>
+  <dt>Forms with lower opening (Albanian, Czech, German, etc)</dt>
+    <dd></dd>
+    <dd>&#8218;&#8217; &#8218;&#8216; &#8222;&#8220; &#8222;&#8221;</dd>
+  <dt>Guillemets (Russian, Finnish, Hungarian, etc)</dt>
+    <dd></dd>
+    <dd>&#171;&#187; &#187;&#171; &#187;&#187; &#8249;&#8250; &#8250;&#8249;</dd>
+  <dt>Dash quotes (Polish, Greek, etc)</dt>
+    <dd></dd>
+    <dd>&#8211; &#8212; &#8213; &ndash;</dd>
+</dl>
+<h3><a name="Multiline_strings">Multiline strings</a></h3>
+
+<p>One may use any number of backticks (<tt>`</tt>) to begin a multiline string. A segment ends when that same amount is encountered again, after encountering something other than a backtick (that is, each segment must contain something, they are incapable of being empty). Sequential multiline string segments will automatically concatenate, so in order to separate two distinct multiline strings, they must be separated by an explicit comma. Comments do not separate them.</p>
+
+<pre><code class="mprl">static Example &#123;
+	key: &#96;&#96;&#96;three ticks&#96;&#96;&#96; # A comment is fine!
+	&#96;&#96;part of &quot;key&quot;
+	still part of &quot;key&quot;&#96;&#96;
+	# The line break and indentation between the double backticks is part of the string value.
+
+	&quot;in a list&quot;: [
+		&#96;first element&#96;
+		&#96;also first element&#96;,
+		&#96;second element&#96;
+	]
+&#125;
+</code></pre>
+<h3><a name="Escape_sequences">Escape sequences</a></h3>
+
+<p>There are three forms of escape sequences. While they are meant to represent what they're named as, they all translate to unicode codepoints.</p>
+
+<pre><code class="mprl">static Example &#123;
+	bytes: &quot;$05$55$1a&quot;
+	codepoints: &quot;$(1f3f4)$(200d)$(2620)$(fe0f)&quot;
+	specials: &quot;$$ $&quot; $z $n $r $t&quot;
+&#125;
+</code></pre>
+<p>Although currently only a sequence of hexadecimal digits are used within parenthesis, everything until the next <tt>)</tt> besides a valid ending quote for this string should be considered part of the request and error accordingly. In the future, it may be possible to expand this to support character names, such as the abbreviations defined by Unicode or W3C.</p>
+
+<p>All Latin letters (besides hexadecimal ones) should be considered potential special characters. Anything else following a <tt>$</tt> should error.</p>
+
+<p>Defined special characters include the following:</p>
+
+<ul>
+    <li>$ = literal "$"</li>
+    <li>any quote character = literal quote character</li>
+    <li>z = NULL, zero, $(0)</li>
+    <li>n = newline, line feed, $(d)</li>
+    <li>r = carriage return, $(a)</li>
+    <li>t = tab, $(9)</li>
+</ul>
+<h3><a name="Literals">Literals</a></h3>
+
+<p>Literals are unquoted, single-line strings. They're intended to be used for simple words or phrases which have some meaning to the key they're being used in, but since we cannot predict all those keywords they're fairly open-ended. Authors should, however, prefer quoted strings for prose and other arbitrary text.</p>
+
+<p>The restrictions are: literals cannot start with any quotation mark, cannot be a range or number etc, do not contain escape sequences, and cannot contain any of the following characters: <tt>[ ] { } ( ) # : ,</tt></p>
+
+<p>Invalid characters may interrupt the literal, cause it to actually be a value struct, or be an actual error, depending on where it's placed. Dollar signs (<tt>$</tt>) are interpreted as the literal character rather than an escape sequence, because literals do not contains escape sequences as there's no need for keywords to use characters that would need to be escaped.</p>
+
+<pre><code class="mprl">static Example &#123;
+	keyword: true
+	annoying: Don&#39;t use prose but it works I guess. Yes that apostrophe does work.
+	&quot;in a list&quot;: [
+		first element
+		second element
+	]
+&#125;
+</code></pre>
+<h2><a name="Numbers">Numbers</a></h2>
+
+<p>There are two numerical forms for general use: decimal and hexadecimal. Everyone should memorize hex -> binary anyway and octal is only useful for chmod. If a key or type needs a different base or some other type of number (negative, fractional, etc), it can interpret it from a <a href="#Literals">literal</a>.</p>
+
+<p>Decimal is as expected, just 0-9 digits sequentially. There is currently no separator such as <tt>_</tt> in Python and JavaScript because large decimal numbers are not expected.</p>
+
+<p>Hexadecimal is specified with a prefix of <tt>$</tt> which is a typical addressing marker and, coming from a ROM hacking perspective, hexnums will typically be used as the <em>base</em> for serializable structs.</p>
+
+<pre><code class="mprl">static Example &#123;
+	decimal: 12345
+	hexdec: $12abc
+&#125;
+</code></pre>
+<h2><a name="Lists">Lists</a></h2>
+
+<p>Lists are arbitrary sequences of values. A typical list starts with a left square bracket (<tt>[</tt>) and end with a right square bracket (<tt>]</tt>). Values inside a list may be separated by commas or newlines and comments are allowed. However there are also list-creating operators and ranges.</p>
+
+<pre><code class="mprl">static Example &#123;
+	# All these values are functionally equivalent.
+	normal1: [1, 2, 3]
+	normal2: [
+		1
+		2
+		3
+	]
+	range1: 1~3
+	range2: 1+2
+	concat: 1:2:3
+&#125;
+</code></pre>
+<p>While the keys in the above example ultimately evaluate the same if you were to convert them to a Python list type, they're stored differently and have different functions (other than the two <strong>normal</strong> keys). Ranges store only what's specified, their contents are virtual. Concatenation operators may or may not collapse values into an actual list depending on implementation, but they must support something like <tt>1:23</tt> being a number and an actual range, despite evaluating to <tt>[1, 2, 3]</tt>.</p>
+
+<p>For in-progress design information on lists, see <a href="https://proposals.imperial.logicplace.com/core/list.html">this proposal</a>.</p>
+
+<h3><a name="Ranges">Ranges</a></h3>
+
+<p>Ranges can be between either decimal or hexadecimal numbers. The two numbers do not have to be the same base. There are four range operators available, but for future-proofing, any combination of symbols besides ones containing and quotation mark or the following should be considered a potential range operator: <tt>[ ] { } ( ) # : , . _ $</tt></p>
+
+<p>The defined operators are:</p>
+
+<dl>
+  <dt><tt>~</tt> or <tt>-</tt></dt>
+    <dd></dd>
+    <dd>Inclusive range from the first number to the second. Can go forwards or backwards.</dd>
+    <dd>Example\</dd>
+    <dd><tt> 1-5 =&gt; [1, 2, 3, 4, 5] </tt></dd>
+  <dt><tt>*</tt></dt>
+    <dd></dd>
+    <dd>Repeat the first number the second number of times.</dd>
+    <dd>Example\</dd>
+    <dd><tt> 2*4 =&gt; [2, 2, 2, 2] </tt></dd>
+  <dt><tt>+</tt></dt>
+    <dd></dd>
+    <dd>An exclusive list from the first number to the sum of the two numbers.</dd>
+    <dd>Another way to think about this</dd>
+    <dd>a list counting up from the first number which contains the second number of elements.</dd>
+    <dd>Example\</dd>
+    <dd><tt> 4+2 =&gt; [4, 5] </tt></dd>
+  <dt><tt>+-</tt> or <tt>&#177;</tt></dt>
+    <dd></dd>
+    <dd>Same as <tt>+</tt> but counts down. That is, the second number could be considered negative.</dd>
+    <dd>Example\</dd>
+    <dd><tt> 6+-3 =&gt; [6, 5, 4] </tt></dd>
+</dl>
+<h3><a name="Concatenation">Concatenation</a></h3>
+
+<p>There are two concatenation operators, concat (<tt>:</tt>) and cons (<tt>::</tt>). Any number of sequential colons should be considered potential concatenation operators (and error appropriately), but no others will be defined.</p>
+
+<p>Concat makes a flat list of the values. Examples as follows:</p>
+
+<pre>
+1:2           =&gt; [1, 2]
+[1, 2]:3      =&gt; [1, 2, 3]
+1:[2, 3]      =&gt; [1, 2, 3]
+[1, 2]:[3, 4] =&gt; [1, 2, 3, 4]
+</pre>
+
+<p>Cons takes the left-hand value as a whole first element, even if it's a list. Equivalent to <tt>[lvalue]:rvalue</tt>.</p>
+
+<pre>
+1::2           =&gt; [1, 2]
+[1, 2]::3      =&gt; [[1, 2], 3]
+1::[2, 3]      =&gt; [1, 2, 3]
+[1, 2]::[3, 4] =&gt; [[1, 2], 3, 4]
+[1, 2]::3::4   =&gt; [[[1, 2], 3], 4]
+1:[2, 3]::4    =&gt; [[1, 2, 3], 4]
+1::[2, 3]:4    =&gt; [1, 2, 3, 4]
+</pre>
+
+<h2><a name="References">References</a></h2>
+
+<p>See <a href="https://proposals.imperial.logicplace.com/syntax/references.html">this proposal</a> for more information.</p>
+
+<h2><a name="Syntax">Syntax</a></h2>
+
+<p>Copy over syntax definition from RPL_Syntax and probably make a summary</p>
+
+<h3><a name="Grammar_summary_key">Grammar summary key</a></h3>
+
+<ul>
+    <li>. = Match any character except newline.</li>
+    <li>$ = Match bounds before a valid newline.</li>
+    <li># &hellip; = Comment.</li>
+    <li>A = Match pattern named A.</li>
+    <li>A? = Match 0 or 1 repetitions of pattern A.</li>
+    <li>A* = Match 0 or more repetitions of pattern A.</li>
+    <li>A+ = Match 1 or more repetitions of pattern A.</li>
+    <li>A{x} = Match exactly x repetitions of pattern A.</li>
+    <li>A{x,y} = Match between x and y repetitions of pattern A. x defaults to 0 and y defaults to infinity.</li>
+    <li>(A B) = Group A and B, so as to repeat them together, etc.</li>
+    <li>A. = Glue A to next pattern in the rule; meaning no whitespace between them.</li>
+    <li>.A = Glue A to previous pattern in the rule.</li>
+    <li>.* = Match some number of characters which are not newline, all glued together. Works for all repetition operators.</li>
+    <li>A .(B)* = Glue A to first repetition of B, if any. Works for all repetition operators. Same as <tt>A. (B)*</tt></li>
+    <li>A (B).* = Glue all repetitions of B together, if any. Works for all repetition operators.</li>
+    <li>(B)*. C = Glue last repetition of B, if any, to C. Works for all repetition operators. Same as <tt>(B)* .C</tt></li>
+    <li>A | B = A or B.</li>
+    <li>A - B = A but not B.</li>
+    <li>A[B] = B's version of A (B must be used elsewhere in the rule).</li>
+    <li>A = {B: &hellip;, C: &hellip;} = How to define B and C's version of A. Addressing A directly acts like (B | C)</li>
+    <li>"x" = Terminal matching the string <tt>x</tt>.</li>
+    <li>'x' = Terminal matching the string <tt>x</tt>.</li>
+    <li>[&hellip;] = Character group, same as RegEx but without any defined character classes.</li>
+    <li>/&hellip;/ = Unicode-enabled Perl Regular Expression.</li>
+    <li>EOL = End of line; marked by an explicit comma, any valid newline, the start of a comment, or the end of the file.</li>
+    <li>EOP = End of parent rule.</li>
+</ul>
+<h3><a name="Grammar_summary">Grammar summary</a></h3>
+
+<p>Whitespace can go between patterns which aren't glued.</p>
+
+<p>Full width, bolded, etc. characters are equivalent to their ASCII counterparts. This is not true for semantically distinct characters, though, like Roman numeral &#8544; should not be the same as Latin letter I. For other established normalizations, they should be explicitly mentioned.</p>
+
+<p>If the first letter of a rule name is uppercase, it's intended to represent a non-terminal; while lowercase is intended to represent a terminal.</p>
+
+<pre><code class="yabnf">Root = (Struct | Comment)*
+
+comment  = &quot;#&quot; .* $
+digit    = [0-9]
+hexdigit = [0-9a-fA-F]
+
+Struct      = type name? StructBody
+ValueStruct = type &quot;@&quot;?. (StructBody | &quot;(&quot; Value &quot;)&quot; | List)
+StructBody  = &quot;&#123;&quot; (HiddenKeys | Key | Struct | comment)* &quot;&#125;&quot;
+HiddenKeys  = &quot;&#123;&quot; Key+ &quot;&#125;&quot;
+Key         = keyName &quot;:&quot; Value (EOL | EOP)
+
+Atomic = String | Number | HexNum | Literal
+Value  = Reference | List | Range | ValueStruct | Atomic
+Values = Value ((&quot;::&quot; | &quot;:&quot;) Value)*
+
+Number      = digit+
+HexNum      = &quot;$&quot;. hexdigit+
+Literal     = (literalChar - lQuote - rQuote - &quot;&#96;&quot;). (literalChar).*
+literalChar = . - &quot;[&quot; - &quot;]&quot; - &quot;&#123;&quot; - &quot;&#125;&quot; - &quot;(&quot; - &quot;)&quot; - &quot;::&quot; - &quot;:&quot; - &quot;,&quot; - &quot;#&quot;
+List        = &quot;[&quot; comment* (Values EOL)* &quot;]&quot;
+Range       = (Number | HexNum). rangeMark. (Number | HexNum)
+rangeMark   = &quot;~&quot; | &quot;-&quot; | &quot;*&quot; | &quot;+&quot; | &quot;+-&quot; | &quot;&#177;&quot;
+
+# The parser could accept comments within any brackets here but it&#39;s not
+# required to, nor is it recommended that authors ever use that ability.
+Reference = &quot;@&quot; (.&quot;(&quot; RefBody &quot;)&quot; | .&quot;[&quot; RefBody &quot;]&quot; | RefBody)
+RefBody   = (name | RefChild) (RefChild | RefIndex | RefKey)*
+RefKey    = (&quot;.&quot; | &quot;-&quot; | &quot;&#9472;&quot; | &quot;-&gt;&quot;) keyName
+RefIndex  = &quot;[&quot; (Atomic | Reference) &quot;]&quot;  # Although these are the only valid contents, the parser
+RefChild  = &quot;&#123;&quot; name &quot;&#125;&quot;                  # could allow &lt;Values&gt; here in order to error properly.
+
+String          = QuotedString &#65372; MultilineString
+QuotedString    = lQuote. (Escape | . - rQuote).*. rQuote[lQuote]
+MultilineString = (/(&#96;+)[\s\S]+?\1/ comment*)+
+Escape          = &quot;$&quot;. (hexdigit&#123;2&#125; | &quot;(&quot; hexdigit+ &quot;)&quot; | [g-zG-Z])
+lQuote          = [&quot;&#8220;&#8221;&#8223;&#8216;&#8217;&#8219;&#12302;&#12300;&#8218;&#8222;&#171;&#187;&#8249;&#8250;&#8211;&#8212;&#8213;] | &quot;--&quot;
+rQuote          = &#123;
+	&#39;&quot;&#39;: &#39;&quot;&#39;, &#39;&#8220;&#39;: [&#8220;&#8221;], &#39;&#8221;&#39;: [&#8221;&#8222;], &#39;&#8223;&#39;: [&#8223;&#8221;],
+	&quot;&#39;&quot;: &quot;&#39;&quot;, &quot;&#8216;&quot;: [&#8216;&#8217;], &quot;&#8217;&quot;: [&#8217;&#8216;&#8218;], &quot;&#8219;&quot;: [&#8219;&#8217;],
+	&quot;&#12302;&quot;: &quot;&#12303;&quot;, &quot;&#12300;&quot;: &quot;&#12301;&quot;,
+	&quot;&#8218;&quot;: [&#8217;&#8216;], &quot;&#8222;&quot;: [&#8220;&#8221;],
+	&quot;&#171;&quot;: &quot;&#187;&quot;, &quot;&#187;&quot;: [&#171;&#187;], &quot;&#8249;&quot;: &quot;&#8250;&quot;, &quot;&#8250;&quot;: &quot;&#8249;&quot;,
+	&quot;&#8211;&quot;: $, &quot;&#8212;&quot;: $, &quot;&#8213;&quot;: $, &quot;--&quot;: $
+&#125;
+
+symbol = /\w[\w\d]*/
+name   = /[\w_][\w\d_]*/
+
+# The following &lt;symbol&gt; uses are informally restricted to being a simple form which
+# is a single script (such as lowercase) and then optionally followed by digits.
+keyName = symbol | (Atomic - Literal)
+type    = symbol. (&quot;.&quot;. symbol)*
+</code></pre>

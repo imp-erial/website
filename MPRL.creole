@@ -1,0 +1,5 @@
+<<import head.html MPRL>>
+
+TODO: How to write MPRL files
+
+<<import foot.html>>

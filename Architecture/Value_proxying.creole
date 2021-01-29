@@ -1,0 +1,5 @@
+<<import head.html Architecture - Value proxying>>
+
+= Value proxying
+
+<<import foot.html>>

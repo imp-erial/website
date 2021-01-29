@@ -1,0 +1,91 @@
+<<import head.html Architecture - Tools>>
+
+= Tools
+* Imperial Exchange: is the basic tool that shuffles data between binary and exported without modifying it in the middle. It can make a binary from an MPRL and data (padding any midspace with 00s) and provide an exchange file. 
+
+== Ideas, hopes, dreams
+These were written some time ago and may not represent current hopes or coherent designs. But they sound nice and I named them, so I don't want to lose the information, in case I ever intend to design something in the spirit of one of these.
+
+=== Imperial Tapestry
+Maybe Imperial Patchwork?
+
+It's the tool that creates and applies standalone binary patches from binary diffs and MPRLs. It should support standard formats like IPS, and maybe a compiled MPRL format but unlikely.
+
+=== Imperial Foxhound
+Foxhound would be a hex editor that integrates MPRL information to annotate portions of the binary, and also allows you to manually annotate portions and export a working MPRL file based on your labels. It should provide ways of previewing the data as different things, and possibly eventually allow you to scan for sane possibilities of certain things. Previews for more complex things can be done in a pane that only shows the preview of the selected section, however, graphic, text, and numerical panes at least should be fully available (and appropriately highlighted and annotated, sharing with all other views).
+
+* Graphic pane: allow selection of premade graphic structs and also entry of generic graphic formats. Display should be allowed to be 1x1 per pixel, expanded to fit the dimensions of the bytes they represent, or expanded to fill the pane (as ratio or stretched).
+* Text pane: allow selection of encoding. Display with chars separated to fill the dimensions of the bytes they represent, or as a full string that pads the ending space
+* Number pane: select base, size, and endianness independently. Note the default pane is hex 1B le
+* Sound pane: select premade sound types or generic sound types. Display as sheet music or waveforms depending on selection (or maybe only waveforms)
+* Preview pane: shows only the selected value (or data if unknown) as a preview. If it is annotated it will display it as that type, otherwise you may select the type
+* Structs pane: does not mirror data, but shows a list of the currently known structs as if they were bookmarks or pages in a document. Clicking them takes you to that data in the editors. 
+* Archive pane: this is like the structs pane but takes a list of names and a list of positions instead (or a list of structs with name and base keys) to populate the list.
+* MPRL pane: lets you view and edit the raw MPRL for a section
+* Composite pane: attempts to show all the data as its known types. Some may be truncated or be unable to be shown entirely; these will just show truncation marks telling the user that it needs to be shown in the preview pane. 
+* Annotate vs Edit mode: editing allows you to change the data while annotating allows you to use it to adjust the MPRL. Editing mode may allow both.
+* Edit externally: allows you to edit a piece of data externally and reimport it. This will likely lock foxhound from changes until the external editor is closed.
+
+=== Imperial Taster
+Taster is an emulator/debugger that allows the creation of virtual hardware and uses MPRL/ASM/ROM resolved to comprehensible ASM to execute and step through the code. With enough information it could run a whole machine, but it doesn't really care whether there's hardware or not. It will allow you to run code and keep track of what it does, as well as do traces, set breakpoints, and so forth. It will likely also allow you to run tests by loading machine states (which should rely on the code/MPRL for positioning and register selection), and unit tests by preparing only what's needed for one op and checking given input/output pairs, and interactive tests by loading the same but running a REPL. Note that this application is not meant to hook into a running application on the current system.
+
+=== Imperial Assembly
+Assembly is an assembler that compiles starting from an ASM file, but manages direct inclusion of MPRL as expected. It can generate patching information so that the author can exchange resources without a full reassembly, and also can generate debugging information (inline if it's supported by the target system, externally otherwise). It may allow compilation from other code types via translators. This should also be able to disassemble binaries into code using a shell MPRL, outputting either a MPRL that marks all the executed regions (and perhaps whatever other data it can determine from the code) or the assembly code itself (or both I guess).
+
+=== Imperial Scribe
+Note from the future: Very likely will never be made, I've come to like VS Code, so there may just be a plugin for that. Many of these features it handles itself, anyway.
+
+Scribe is an IDE that uses the assembler and parser information to highlight and comprehend the text you're editing. This essentially means that there are no discrepancies between the compiler's lexing and the IDE's highlighting.
+
+Features I want:
+* jump to declaration/implementation
+* view prototypes for function
+* check code/underline bad code
+* snippits
+* really smart tabbing/spacing with modified enter/tab controls and tabulating/autoalign and EOL whitespace trimming (though it seems as if it has not been removed, since the depth can be predicted) all with regard to whitespace in/sensitive contexts
+* symbol/type tracking
+* regex search/replace in single/multiple file(s)
+* build/run/debug/package (code or exe)
+* color previews
+* data previews
+* alternate base conversions/previews
+* date previews with smart timezone detection
+* class/object view and dropdowns
+* scope tracking
+* search in scope
+* reference search
+* context searches (e.g. in strings, in comments, ...)
+* semantic searches (i.e. search for code based on what it does)
+* agnostic preprocessor (can store it in project file or as a comment or something...)
+* project and task management
+* refactoring helpers
+* export highlighted source and copy saves formatting
+* customizable source formatting and create formatter from source (for saved version and displayed version separately)
+* themes (for source and editor, probably not separately)
+* nfo/alt encoding capabilities with smart detection based on reading from known formats and also extensions and BOM
+* dialogue editor and table editor (likely will not bother with wysiwyg formatted text editors or anything more complex)
+* plugin capabilities
+* automatic file reloading with collision resolution if there are changes currently pending
+* diff management
+* clone view and multipane view
+* move/rename/delete/commit file with version control awareness
+* views to some extent in that you can select what panes are open on the commandline (which should then only open in an existing window if the view pattern or associated project match it)
+* configurable bindings with various presets (incl. vim/emacs and well-known text editors (both mac and non-mac variants))
+* spellchecking in comments and strings ofc tho possibly specifically mentioned in context specification with global local custom (scribe-specific) and project level dictionaries
+* very large file support (streamed and partial loading) with loading progress bar
+* ability to kill any process that's taking too long or set timeouts for them (complex searches, highlighting large files, creating/loading symbols/intellisense (should be async tho), conflict resolution (sane failure, similar to git merge fails, but auto-open differ), plugin tasks, rendering previews, etc)
+** This should be feature-rich but only load/make available those features on demand so that it can be fast as a simple notepad as well. Can load as scribe --text or something which will load a very basic version with only text, line numbers, and highlighting probably.
+** Ideally there could be a CLI/ncurses frontend too which supports the same features but accessed in different ways obviously. Highlighting should translate as well as possible. Likely just has its own themes separate from the GUI version. Plugins that depend on the GUI or CLI won't have those parts (and what depends on them) loaded in the opposite environment, but it should be possible to define both a GUI and CLI version of the same part.
+
+=== Imperial Proxy
+Proxy assumes the input is one file, identifies its type by mime or similar, converts it to a desired format into tmp, loads that in the associated editor for the original type, and converts the tmp file back into the original when the editor is closed.
+
+This is meant to be a double click proxy on unusual file types that no one wants to make a custom editor for.
+
+=== Imperial Cartographer
+Cartographer is a map editor using tile data etc, works as expected. May have event/object placement as well if possible. Should support combo tiles i.e. tiles made of multiple tiles but should not require grouped tiles be placed together. This could be done with tile organization and shift selection of tiles, just be careful of IDs. This also needs to support map-level and tile-level palette modes.
+
+=== Imperial Chronicler
+Chronicler is meant to be save file editor but basically allows one to make a GUI for editing a binary format described in a MPRL. Should allow for all the typical form input fields and styling information. Likely it will just run on HTML/CSS, anyway, and have some sort of mapping between structs/keys and form fields. Possibly some sort of markdown-ish extension that converts a simplified text form to HTML with hooks for things save file editors typically need (like tabs) or possibly have some way of generating the editor directly from the MPRL and allowing the author to edit that. HTML should be roughly standardized so there can be downloadable CSS themes.
+
+<<import foot.html>>
