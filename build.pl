@@ -6,7 +6,8 @@
 
 use Getopt::Long;
 use File::Find qw(find);
-use File::Path qw(make_path remove_tree);
+use File::Remove qw(remove);
+use File::Path qw(make_path);
 use File::Slurp qw(read_file write_file);
 use File::Basename qw(fileparse dirname basename);
 use HTML::Escape qw(escape_html);
@@ -39,11 +40,11 @@ creole_link \&mylink;
 # Handle custom stuff.
 sub myplugin {
 	$_[0] =~ s/^TOC(?:\s+(.*))?/make_toc($1)/es or
-	$_[0] =~ s/^import (.*)/import_html($1)/e or
 	$_[0] =~ s/^table(?: +(.+))?$([\s\S]+)/make_table($1,$2)/me or
 	$_[0] =~ s%^code(?: +(\S+))? *$\r?\n([\s\S]+)%make_code($1,$2)%me or
 	$_[0] =~ s/^crumbs (.*)/make_crumbs($1)/e or
-	$_[0] =~ s/^mermaid\r?\n([\s|S]+)/add_mermaid($1)/e or
+	$_[0] =~ s/^import (.*)/import_html($1)/e or
+	$_[0] =~ s/^mermaid *$\r?\n([\s\S]+)/add_mermaid($1)/me or
 	$_[0] = "<!-- Parse error: this plugin was not found -->\n";
 	return $_[0];
 }
@@ -87,7 +88,7 @@ sub make_toc {
 		--$expected if $amt < $got; # Back down a level.
 		$got = $amt;
 		my $diff = $got - $expected;
-		$line =~ s/^#{$diff}// if $diff;
+		$line =~ s/^#$diff// if $diff;
 		$doc .= "$line\n";
 	}
 	return creole_parse($doc);
@@ -141,6 +142,12 @@ sub import_html {
 	}
 }
 
+sub parse_cell {
+	my $str = shift @_;
+	$str =~ s/~(~*)(?=[>|])/$1/g;
+	return trim(creole_parse($str));
+}
+
 sub make_table {
 	my $args = shift @_;
 	my $table = shift @_;
@@ -151,21 +158,23 @@ sub make_table {
 	my $height = $2;
 
 	# Is there a read direction? If not assume lrud
-	my $dir = $args =~ /\b([lrud]+)\b/ ? $1 : "lrud";
+	my $dir = ($args =~ /\b([lrud]+)\b/) ? $1 : "lrud";
 
 	# Width definitions. 1 per col.
 	my @widths = ($args =~ /\bwidth *= *\( *([^)]*) *\)/) ? split(/ *, */, $1) : ();
 
 	# Height definitions. 1 per row.
-	my @heights = ($args =~ /\bheight=\(([^)]*)\)/) ? split(/ *, */, $1) : ();
+	my @heights = ($args =~ /\bheight *= *\(([^)]*)\)/) ? split(/ *, */, $1) : ();
 
-	# TODO: other attrs, style
+	my $style = ($args =~ /\bstyle *= *'([^']*)'/) ? escape_html($1) : "";
+
+	# TODO: other attrs?
 
 	# Make the cells. Everything between |= or | unless preceeded by ~
-	my @cells = grep(!/^\s*$/, split(/\s*(?<!~)\|/, $table));
+	my @cells = grep(!m/^\s*$/, split(/\s*(?<!~)\|/, $table));
 	for (my $i = 0; $i < scalar @cells; $i++) {
-		$cells[$i] =~ s%^=\s*(.+?)\s*$%'<th>' . trim(creole_parse($1)) . '</th>'%se or
-		$cells[$i] =~ s%^\s*(.+?)\s*$%'<td>' . trim(creole_parse($1)) . '</td>'%se;
+		$cells[$i] =~ s%^=\s*(.+?)\s*$%'<th>' . parse_cell($1) . '</th>'%se or
+		$cells[$i] =~ s%^\s*(.+?)\s*$%'<td>' . parse_cell($1) . '</td>'%se;
 	}
 
 	# Now reorganize them.
@@ -183,7 +192,7 @@ sub make_table {
 	);
 	my $indexer = $indexers{$dir} or $indexers{"lu"};
 
-	my $result = '<table>';
+	my $result = $style ? "<table style=\"$style\">" : '<table>';
 	for (my $y = 0; $y < $height; $y++) {
 		my $h = $heights[$y];
 		$result .= $h ? "<tr height=\"$h\">" : '<tr>';
@@ -191,7 +200,7 @@ sub make_table {
 			my $idx = $indexer->($x, $y);
 			my $cell = $cells[$idx];
 			my $w = $widths[$x];
-			$cell =~ s/<td>/<td width="$w">/ if $w;
+			$cell =~ s/<t([hd])>/<t$1 width="$w">/ if $w;
 			$result .= $cell;
 		}
 		$result .= '</tr>';
@@ -259,7 +268,7 @@ sub parse_text {
 
 	# Add mermaid include if needed
 	if ($has_mermaid) {
-		$creoletext =~ s%</body>%<script src="https://unpkg.com/mermaid\@8.8.4/dist/"></script><script>mermaid.initialize({startOnLoad: true})</script></body>%;
+		$creoletext =~ s%</body>%<script src="https://unpkg.com/mermaid\@8.8.4/dist/mermaid.js"></script><script>mermaid.initialize({startOnLoad: true})</script></body>%;
 	}
 
 	return $creoletext;
@@ -317,8 +326,9 @@ if ($help) {
 	$out = 'release' if !$out;
 
 	# First create the folder and clear it
-	remove_tree($out);
-	make_path($out);
+	my @files = glob( "$out/*" );
+	@files = grep(!m%^$out/(scripts|styles|\.git|README.md|CNAME)%, @files);
+	remove(\1, {glob => 0}, @files);
 
 	# Now build according to the structure:
 	# Pretty:
