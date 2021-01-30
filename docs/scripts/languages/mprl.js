@@ -1,10 +1,10 @@
 /*
-Language: RPL
+Language: MPRL
 Author: Sapphire Becker (logicplace.com)
 Category: 
 */
 
-hljs.registerLanguage("rpl", function(hljs) {
+hljs.registerLanguage("mprl", function (hljs) {
 	function keywords2re(kws) {
 		// TODO: Escapes?
 		return new RegExp(kws.join('|'), "i");
@@ -71,16 +71,16 @@ hljs.registerLanguage("rpl", function(hljs) {
 		{ begin: /@?\u201F/, end: /[\u201F\u201D]|$/, relevance: 10 },
 		// Single quotes.
 		{ begin: /@?'/, end: /'/ },
-		{ begin: /@?\u2018/, end: /[\u2018\u2019]|$/,  relevance: 10 },
+		{ begin: /@?\u2018/, end: /[\u2018\u2019]|$/, relevance: 10 },
 		{ begin: /@?\u2019/, end: /[\u2018-\u201A]|$/, relevance: 10 },
-		{ begin: /@?\u201A/, end: /[\u2018\u2019]|$/,  relevance: 10 },
-		{ begin: /@?\u201B/, end: /[\u201B\u2019]|$/,  relevance: 10 },
+		{ begin: /@?\u201A/, end: /[\u2018\u2019]|$/, relevance: 10 },
+		{ begin: /@?\u201B/, end: /[\u201B\u2019]|$/, relevance: 10 },
 		// CJK quotes.
 		{ begin: /@?\u300C/, end: /\u300D|$/, relevance: 10 },
 		{ begin: /@?\u300E/, end: /\u300F|$/, relevance: 10 },
 		// Guillemets.
-		{ begin: /@?«/, end: /»|$/,           relevance: 10 },
-		{ begin: /@?»/, end: /[«»]|$/,        relevance: 10 },
+		{ begin: /@?«/, end: /»|$/, relevance: 10 },
+		{ begin: /@?»/, end: /[«»]|$/, relevance: 10 },
 		{ begin: /@?\u2039/, end: /\u203A|$/, relevance: 10 },
 		{ begin: /@?\u203A/, end: /\u2039|$/, relevance: 10 },
 		// Dashes.
@@ -122,8 +122,8 @@ hljs.registerLanguage("rpl", function(hljs) {
 		endsWithParent: true,
 		starts: undefined, // MATH_SYMBOL
 		contains: [
-			hljs.inherit(REFERENCE, {endsWithParent: true, endsParent: true}),
-			hljs.inherit(MATH_GROUP, {begin: /<(?!<)/, end: />(?!>)/}),
+			hljs.inherit(REFERENCE, { endsWithParent: true, endsParent: true }),
+			hljs.inherit(MATH_GROUP, { begin: /<(?!<)/, end: />(?!>)/ }),
 		]
 	};
 	var MATH_SYMBOL = {
@@ -133,13 +133,13 @@ hljs.registerLanguage("rpl", function(hljs) {
 	};
 	var MATH_NUMBER_PARENS = hljs.inherit(MATH_NUMBER);
 	MATH_NUMBER_PARENS.contains.push(
-		hljs.inherit(MATH_GROUP, {begin: /\(/, end: /\)/})
+		hljs.inherit(MATH_GROUP, { begin: /\(/, end: /\)/ })
 	)
 	function newMath(mathNum) {
 		var num = hljs.inherit(mathNum);
 		num.starts = hljs.inherit(MATH_SYMBOL);
 		//num.starts.starts = num; // wat
-		for (var thing=num.contains, i = thing.length - 1; i > 0; --i) {
+		for (var thing = num.contains, i = thing.length - 1; i > 0; --i) {
 			var n = hljs.inherit(mathNum);
 			n.starts = hljs.inherit(MATH_SYMBOL);
 			n.starts.starts = n;
@@ -206,7 +206,7 @@ hljs.registerLanguage("rpl", function(hljs) {
 	var LIST = {
 		className: 'list',
 		begin: /\[/, end: /\]/,
-		contains: [ /* VALUE_CONTAINER */ ],
+		contains: [ /* VALUE_CONTAINER */],
 	};
 	var VALUE_CONTAINER = {
 		className: 'value', classEnd: 'symbol',
@@ -259,7 +259,7 @@ hljs.registerLanguage("rpl", function(hljs) {
 		starts: {
 			className: 'wrap',
 			begin: /\(/, end: /\)/,
-			contains: [ hljs.inherit(VALUE_CONTAINER) ],
+			contains: [hljs.inherit(VALUE_CONTAINER)],
 		},
 	});
 	var KEY_STRUCT_LIST = hljs.inherit(KEY_STRUCT, {
@@ -277,7 +277,7 @@ hljs.registerLanguage("rpl", function(hljs) {
 			hljs.HASH_COMMENT_MODE,
 			{
 				className: 'attribute',
-				begin: /\s*(?![#\s])/, afterBegin: '(\\w+\\d*|' + NUMBER_RE +'|"($.|[^"]+)*"|“($.|[^“”]+)*[“”]|”($.|[^”„]+)*[”„]|„($.|[^“”]+)*[“”]|‟($.|[^‟”]+)*[‟”]|\'($.|[^\']+)*\'|‘($.|[^‘’]+)*[‘’]|’($.|[^‘’‚]+)*[‘’‚]|‚($.|[^‘’]+)*[‘’]|‛($.|[^‛’]+)*[‛’]|『($.|[^』]+)*』|「($.|[^」]+)*」|«($.|[^»]+)*»|»($.|[^«»]+)*[«»]|‹($.|[^›]+)*›|›($.|[^‹]+)*‹)' + SPACE_COMMENT + ':', end: /:/,
+				begin: /\s*(?![#\s])/, afterBegin: '(\\w+\\d*|' + NUMBER_RE + '|"($.|[^"]+)*"|“($.|[^“”]+)*[“”]|”($.|[^”„]+)*[”„]|„($.|[^“”]+)*[“”]|‟($.|[^‟”]+)*[‟”]|\'($.|[^\']+)*\'|‘($.|[^‘’]+)*[‘’]|’($.|[^‘’‚]+)*[‘’‚]|‚($.|[^‘’]+)*[‘’]|‛($.|[^‛’]+)*[‛’]|『($.|[^』]+)*』|「($.|[^」]+)*」|«($.|[^»]+)*»|»($.|[^«»]+)*[«»]|‹($.|[^›]+)*›|›($.|[^‹]+)*‹)' + SPACE_COMMENT + ':', end: /:/,
 				contains: [
 					STRING,
 					NUMBER,

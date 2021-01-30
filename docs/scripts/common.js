@@ -3,7 +3,7 @@ var base = $('script[src$="common.js"]').attr("src").replace("common.js", "");
 var count = 0;
 function retr() {
 	if (++count == 3) {
-		$('pre code').each(function(i, block) {
+		$('pre code').each(function (i, block) {
 			hljs.highlightBlock(block, postProcess);
 		});
 	}
@@ -14,7 +14,7 @@ $.getScript(base + "highlight.js", function () {
 	});
 	$.getScript(base + "languages/json.js", retr);
 	$.getScript(base + "languages/python.js", retr);
-	$.getScript(base + "languages/rpl.js", retr);
+	$.getScript(base + "languages/mprl.js", retr);
 })
 
 function postProcess(block) {
@@ -40,7 +40,7 @@ function postProcess(block) {
 
 var pairIdx = 0;
 function matchBrackets($block, forms) {
-	for(var className in forms) {
+	for (var className in forms) {
 		var blocks = $block.find(".hljs-" + className).toArray();
 		function doWrap(the) {
 			var $this = $(the);
