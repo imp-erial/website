@@ -314,7 +314,7 @@ if ($help) {
 
 	  --help       -h  Print this help text.
 	  --all        -a  Build all files in the given directory (default: CWD)
-	  --out        -o  Directory or file to write to (default: 'release' or stdout)
+	  --out        -o  Directory or file to write to (default: 'docs' or stdout)
 	  --text       -t  Input creole text directly
 	  --file       -f  Specify a creole file (assumed if no flag specified)
 	  --no-pretty  -P  Don't use pretty URLs (better for use locally)
@@ -323,7 +323,7 @@ if ($help) {
 	print $helptext
 } elsif ($all) {
 	# Build directory accordingly
-	$out = 'release' if !$out;
+	$out = 'docs' if !$out;
 
 	# First create the folder and clear it
 	my @files = glob( "$out/*" );
