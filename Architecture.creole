@@ -5,6 +5,7 @@ Some portion of what's described here is not yet implemented, however the goal h
 <<TOC
 Architecture/Overview.creole
 Architecture/MPRL.creole
+Architecture/Link_Map.creole
 >>
 
 <<import foot.html>>

@@ -9,7 +9,104 @@
 	<link rel="stylesheet" type="text/css" href="../../styles/zenburn.css">
 </head>
 <body>
+<div class="breadcrumbs"><span class="breadcrumb"><a href="../../Architecture">Architecture</a></span><span class="breadcrumb">Link Map</span></div>
+<ol>
+    <li><a href="#Link_Map">Link Map</a></li>
+<ol>
+    <li><a href="#Things_that_are_linked">Things that are linked</a></li>
+    <li><a href="#Ways_things_are_linked">Ways things are linked</a></li>
+    <li><a href="#Common_links">Common links</a></li>
+    <li><a href="#Reference_groups">Reference groups</a></li>
+</ol>
+</ol>
 <h1><a name="Link_Map">Link Map</a></h1>
+
+<p>The link map is Imperial's system for representing how all the data in the system connects together. It's both a caching system and a way to represent references (both implicit and explicit). Exchange also uses the links to determine which data of a reference group should be exported and which can be derived from the exported data (so as to reduce duplication in the export).</p>
+
+<p>The cache invalidation system exists for two purposes: reimporting from an altered source (thus changing dynamic data) and allowing applications to alter data at will. In this way, it's a system to make Imperial reactive.</p>
+
+<h2><a name="Things_that_are_linked">Things that are linked</a></h2>
+
+<ul>
+    <li>A source file (such as a binary) and its entry node(s) in memory.</li>
+<ul>
+    <li>This is likely done thru a node for the packed form, so source <-> packed <-> keys.</li>
+</ul>
+    <li>A referrant and all explicit references to it.</li>
+<ul>
+    <li>This can be list indices and basic values, as well as keys.</li>
+</ul>
+    <li>An inherited value and the key it inherited from.</li>
+    <li>A donor's static data and all its clones'.</li>
+    <li>A calculated value and all contributors to that value.</li>
+    <li>A parent's packed form and all its children's.</li>
+    <li>A whole struct and whole form conversions of it.</li>
+<ul>
+    <li>For example, graphic -> png.</li>
+</ul>
+    <li>Links between data and an applications use of it, if the application requests it.</li>
+</ul>
+<h2><a name="Ways_things_are_linked">Ways things are linked</a></h2>
+
+<p>Often times, a link doesn't have equivalent data of the same type on both ends. There is generally some conversion being made. In this case, the link map must be aware of the implications of that conversion. It can be:</p>
+
+<ul>
+    <li>reversible: lossless, one-to-one translation.</li>
+    <li>recoverable: 100% quality but not bit-for-bit the same, e.g. ordering being lost.</li>
+    <li>lossy: lost quality, but can be reversed anyway, such as ogg -> mp3.</li>
+    <li>irreversible: the translation is one-way, and cannot be recovered into a useful state when reversed.</li>
+</ul>
+<p>For instance, if you query a MIDI-type struct for how many A notes it has, this is irreversible (it cannot recreate the MIDI data from knowing how many A notes it has, though it can perhaps validate it). But if you have a conversion from number to string (with no formatting), it's reversible.</p>
+
+<h2><a name="Common_links">Common links</a></h2>
+
+<p>When writing a description for a binary files, the position information is often implied. That is, it defaults to referencing the previous sister's end (or parent's base if no sister) or 0:b if it's the first struct in the root or a new binary context. In the referential cases, it establishes a link the same as if it was an explicit reference.</p>
+
+<p>When a struct references into another struct which has been cloned, it forces clones of itself in a 1:1 manner. So if B references into A and is cloned in this way, then: A<sub>0</sub> and B<sub>0</sub> are linked, A<sub>1</sub> and B<sub>1</sub> are linked, etc. A is also linked to A<sub>0..N</sub> but A<sub>0</sub> has no association with A<sub>1</sub> or B<sub>1</sub>.</p>
+
+<h2><a name="Reference_groups">Reference groups</a></h2>
+
+<p>When multiple keys (for example) reference a single target, they and the target join what's called a reference group. These groups have special cache invalidation rules compared to the typical 1:1 links.</p>
+
+<p>When a member of the group which is not the target is invalidated, the target is invalidated, but not the other members. When the target is updated, it invalidates all members besides itself. When the target is requested but does not have a value, it can interpret the value from the reference group members only if all members who have a value will convert to the same value (it is an error if they have divergent values, in this situation). When a member does not have a value, they must retrieve it through the target (which can infer it from other members). Similar to this pseudocode:</p>
+
+<pre><code class="python">def target_invalidated_or_updated(target, members):
+	for member in members:
+		member.invalidate()
+
+def member_invalidated_or_updated(member, target, other_members):
+	target.invalidate()
+
+# Note that these following two functions do not cause invalidations.
+def get_target_value(target, members):
+	if not target.has_value:
+		for member in members:
+			if member.has_value:
+				value = target.convert_value_from(member)
+				if target.has_value:
+					assert value == target.value
+				target.value = value
+	return target.value
+
+def get_member_value(member, target, other_members):
+	if not member.has_value:
+		value = get_target_value(target, other_members)
+		member.value = member.convert_value(value)
+	return member.value
+</code></pre>
+<p>References to references chain rather than get absorbed. For instance, in the case of something like:
+<pre><code class="mprl">static Example &#123;
+	a: 1
+	b: @this.a
+	c: @this.a
+	d: @this.b
+	e: @this.b
+&#125;
+</code></pre>
+
+These keys do not enter into a single reference group, but two. <tt>{a, b, c}</tt> and <tt>{b, d, e}</tt>. This way, if this were a dynamic and <em>b</em> required some sort of conversion, <em>d</em> and <em>e</em> know to convert from <em>b</em> and not from, for example, <em>c</em> which might convert differently.</p>
+
+<p>Explicit, circular references are disallowed; at least for now. If the are implemented, they should error if the end of the cycle does not convert to the same value as the first. Likely, they could not be lazily evaluated.</p>
 
 </body>
 </html>

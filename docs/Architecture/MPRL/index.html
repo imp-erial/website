@@ -155,14 +155,13 @@
 <p>Finally, there is a notion of linear ordering to structs which can be tricky. If the root has two basic structs, it's simply the order they're defined in. But given this case:</p>
 
 <pre><code class="mprl">graphic A &#123;
-	# The @ here is the promotion operator.
-	# Conceptually, it promotes the struct to be an elder sister to A,
-	# and replaces the definition in the key with a reference to it.
-	width: number @&#123; size: 2 &#125;
-	height: number @&#123; size: 2 &#125;
+	width: number &#123; size: 2 &#125;
+	height: number &#123; size: 2 &#125;
 &#125;
 </code></pre>
-<p>The linear order is: A.width, A.height, then A. This ideology can be used in different situations, but for unserializing binary data, this implies the order in the binary source data (two 2-byte integers followed by a graphic of those dimensions). For free structs, the manager will decide their linear order, but typically it can be thought of as like: parent, child 1, child 2, parent's next sibling.</p>
+<p>The linear order is: A.width, A.height, then A. This ideology can be used in different situations, but for unserializing binary data, this implies the order in the binary source data (two 2-byte integers followed by a graphic of those dimensions). This works like this here because the two numbers do not have any <em>data</em> key declared, so the parser notes them as "in need of sourced data" and promotes them to the parent struct as if they were siblings just before A. If the type used is not a value type, it may have a different means of determining whether or not it's in need of sourced data.</p>
+
+<p>For free structs, the manager will decide their linear order, but typically it can be thought of as like: parent, child 1, child 2, parent's next sibling. It should really just act how an author would expect it should act in a given scenario, without the need for too much thought.</p>
 
 <h2><a name="Keys">Keys</a></h2>
 
@@ -418,7 +417,7 @@ digit    = [0-9]
 hexdigit = [0-9a-fA-F]
 
 Struct      = type name? StructBody
-ValueStruct = type &quot;@&quot;?. (StructBody | &quot;(&quot; Value &quot;)&quot; | List)
+ValueStruct = type (StructBody | &quot;(&quot; Value &quot;)&quot; | List)
 StructBody  = &quot;&#123;&quot; (HiddenKeys | Key | Struct | comment)* &quot;&#125;&quot;
 HiddenKeys  = &quot;&#123;&quot; Key+ &quot;&#125;&quot;
 Key         = keyName &quot;:&quot; Value (EOL | EOP)

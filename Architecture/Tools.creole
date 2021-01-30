@@ -1,5 +1,8 @@
 <<import head.html Architecture - Tools>>
 
+<<crumbs Architecture -> Tools>>
+<<TOC>>
+
 = Tools
 * Imperial Exchange: is the basic tool that shuffles data between binary and exported without modifying it in the middle. It can make a binary from an MPRL and data (padding any midspace with 00s) and provide an exchange file. 
 
