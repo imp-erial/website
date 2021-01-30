@@ -10,7 +10,7 @@ The cache invalidation system exists for two purposes: reimporting from an alter
 
 == Things that are linked
 * A source file (such as a binary) and its entry node(s) in memory.
-** This is likely done thru a node for the packed form, so source <-> packed <-> keys.
+** This is likely done thru a node for the packed form, so source ↔ packed ↔ keys.
 * A referrant and all explicit references to it.
 ** This can be list indices and basic values, as well as keys.
 * An inherited value and the key it inherited from.
@@ -18,7 +18,7 @@ The cache invalidation system exists for two purposes: reimporting from an alter
 * A calculated value and all contributors to that value.
 * A parent's packed form and all its children's.
 * A whole struct and whole form conversions of it.
-** For example, graphic -> png.
+** For example, graphic → png.
 * Links between data and an applications use of it, if the application requests it.
 
 == Ways things are linked
@@ -26,7 +26,7 @@ Often times, a link doesn't have equivalent data of the same type on both ends. 
 
 * reversible: lossless, one-to-one translation.
 * recoverable: 100% quality but not bit-for-bit the same, e.g. ordering being lost.
-* lossy: lost quality, but can be reversed anyway, such as ogg -> mp3.
+* lossy: lost quality, but can be reversed anyway, such as ogg → mp3.
 * irreversible: the translation is one-way, and cannot be recovered into a useful state when reversed.
 
 For instance, if you query a MIDI-type struct for how many A notes it has, this is irreversible (it cannot recreate the MIDI data from knowing how many A notes it has, though it can perhaps validate it). But if you have a conversion from number to string (with no formatting), it's reversible.

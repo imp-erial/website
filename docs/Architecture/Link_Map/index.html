@@ -30,7 +30,7 @@
 <ul>
     <li>A source file (such as a binary) and its entry node(s) in memory.</li>
 <ul>
-    <li>This is likely done thru a node for the packed form, so source <-> packed <-> keys.</li>
+    <li>This is likely done thru a node for the packed form, so source &#8596; packed &#8596; keys.</li>
 </ul>
     <li>A referrant and all explicit references to it.</li>
 <ul>
@@ -42,7 +42,7 @@
     <li>A parent's packed form and all its children's.</li>
     <li>A whole struct and whole form conversions of it.</li>
 <ul>
-    <li>For example, graphic -> png.</li>
+    <li>For example, graphic &#8594; png.</li>
 </ul>
     <li>Links between data and an applications use of it, if the application requests it.</li>
 </ul>
@@ -53,7 +53,7 @@
 <ul>
     <li>reversible: lossless, one-to-one translation.</li>
     <li>recoverable: 100% quality but not bit-for-bit the same, e.g. ordering being lost.</li>
-    <li>lossy: lost quality, but can be reversed anyway, such as ogg -> mp3.</li>
+    <li>lossy: lost quality, but can be reversed anyway, such as ogg &#8594; mp3.</li>
     <li>irreversible: the translation is one-way, and cannot be recovered into a useful state when reversed.</li>
 </ul>
 <p>For instance, if you query a MIDI-type struct for how many A notes it has, this is irreversible (it cannot recreate the MIDI data from knowing how many A notes it has, though it can perhaps validate it). But if you have a conversion from number to string (with no formatting), it's reversible.</p>
