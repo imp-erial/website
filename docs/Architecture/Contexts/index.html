@@ -9,7 +9,230 @@
 	<link rel="stylesheet" type="text/css" href="../../styles/zenburn.css">
 </head>
 <body>
+<div class="breadcrumbs"><span class="breadcrumb"><a href="../../Architecture">Architecture</a></span><span class="breadcrumb">Contexts</span></div>
+<ol>
+    <li><a href="#Contexts">Contexts</a></li>
+<ol>
+    <li><a href="#Binary">Binary</a></li>
+    <li><a href="#Textual">Textual</a></li>
+<ol>
+    <li><a href="#Structured_text">Structured text</a></li>
+    <li><a href="#Semistructured_text">Semi-structured text</a></li>
+    <li><a href="#Unstructured_text">Unstructured text</a></li>
+<ol>
+    <li><a href="#Text_selectors">Text selectors</a></li>
+<ol>
+    <li><a href="#regex">regex</a></li>
+    <li><a href="#bounds">bounds</a></li>
+    <li><a href="#scanf">scanf</a></li>
+</ol>
+</ol>
+</ol>
+    <li><a href="#Filing">Filing</a></li>
+</ol>
+</ol>
 <h1><a name="Contexts">Contexts</a></h1>
+
+<p>Contexts are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.</p>
+
+<p>Because contexts completely change how the structs work, they block all inheritance by their children. That is, their children cannot inherit keys from the context or higher. However, a context's grandchild can inherit keys from its parent just fine.</p>
+
+<p>While there could be any number of context types, we currently define three: binary, textual, and filing. The root may be any type the applcation requests. For Exchange, it will be binary if the user interacts with a ROM (or whatever) and filing if the user interacts with a folder.</p>
+
+<h2><a name="Binary">Binary</a></h2>
+
+<p>As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called <em>serializable</em> types. They must define the methods <em>serialize</em> and <em>unserialize</em> in order to pack and unpack, respectively.</p>
+
+<p>The locator keys defined by binary contexts are:</p>
+
+<ul>
+    <li>base: The address to start reading from. It can be specified in three ways:</li>
+<ul>
+    <li><tt>[<u>number</u>, <u>relative marker</u>]</tt> - of which the marker can be <strong>b</strong>, <strong>c</strong>, or <strong>e</strong>. In this case, it'd usually be written like <tt>$000001:c</tt>, for instance.</li>
+<ul>
+    <li><strong>b</strong> - The number is the absolute position.</li>
+    <li><strong>c</strong> - The number is the offset from end of elder sibling or start of parent.</li>
+    <li><strong>e</strong> - The number is the offset, backwards, from absolute end of context.</li>
+</ul>
+    <li><tt><u>number</u></tt> - it's relative to the start of the context. That is, it assumes the marker <strong>b</strong>.</li>
+    <li>If unset, it defaults to the previous (by linear ordering) struct's end. That is, the default is <tt>0:c</tt>.</li>
+    <li>When retrieved, it returns the absolute position as a number.</li>
+</ul>
+    <li>size: A size, which accepts a size type declaration. Defined as follows:</li>
+<ul>
+    <li><tt>"<u>number</u> <u>units</u>"</tt> - Any string type with a number, whitespace, then a unit name. The number may contain a decimal point.</li>
+<ul>
+    <li>For now the units may be <strong>bits</strong> or <strong>bytes</strong>, others may be defined in the future.</li>
+    <li>If a decimal point is used with <strong>bytes</strong> it's assumed to be the number of bits extra, so <strong>1.1</strong> is 1 byte and the first bit (MSB) of the next byte. There may be a way to invert the bit order in the future.</li>
+    <li><strong>bits</strong> does not accept a decimal point.</li>
+</ul>
+    <li><tt><u>number</u></tt> - It assumes the units is "bytes", but does not allow a decimal point.</li>
+    <li>When retrieved as a number, it should return the number based on the units used to declare it, rounded up.</li>
+<ul>
+    <li>Requesting types which are knowledgable about the size type (or units in general) may choose a specific unit.</li>
+</ul>
+    <li>When retrieved as a string, it should return the original string declared, or the number plus <tt>&nbsp;<strong>bytes</strong></tt> if it was declared as a number.</li>
+    <li>TODO: size type proposal &amp; link</li>
+</ul>
+    <li>end: Specify the address one byte after the final byte included in the serialized data for this struct. Accepts the same definitions as base.</li>
+</ul>
+<p>The locators have the following constraints, from which calculations of missing values can potentially be drawn:</p>
+
+<ul>
+    <li>base + size = end</li>
+    <li>From context's perspective: size.min = sum(c.size for c in children)</li>
+<ul>
+    <li>Assumed to be the real size if no size of the context is specified. But size, of course, maxes out at the end of the context, which will often be set when doing conversions to binary from another context type.</li>
+</ul>
+</ul>
+<h2><a name="Textual">Textual</a></h2>
+
+<p>Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). While there should be a decent amount of pre-defined structured text parsers, it should also be possible to declare your own in MPRL, but this process hasn't yet been defined.</p>
+
+<h3><a name="Structured_text">Structured text</a></h3>
+
+<p>Structured text refers largely to object notation and markup, such as JSON, YAML, and XML.</p>
+
+<p>Each type will define its own selectors which are natural for that format and provide them through the <em>base</em> locator key. It may (and probably will) accept multiple types of selectors, though. Because it's common to match multiple entities, these contexts also provide a <em>limit</em> locator key. These is no linear ordering.</p>
+
+<p>XML will use XPATH selecotrs (and others should also accept this, since it's so general), JSON can use <a href="https://stedolan.github.io/jq/manual/">jq</a> or <a href="https://tools.ietf.org/html/rfc6901">JSON Pointers</a>, HTML could use jQuery-type selectors, etc.</p>
+
+<ul>
+    <li>base: A selector of some sort, to find a chunk of text to interpret. What's accepted is defined per context.</li>
+    <li>limit: Defines how many may be accepted. If the value is strictly 1 (and not a reference), the struct will not be cloned. Otherwise, it will be cloned regardless of how many are found.</li>
+<ul>
+    <li><tt>[<u>min</u>, <u>max</u>]</tt> - Min must be a number and max may be a number or the word <strong>any</strong>.</li>
+    <li><tt><u>number</u></tt> - The strict value; exactly that many.</li>
+    <li>Defaults to <tt>1:any</tt>.</li>
+    <li>When retrieved, it returns the actual value found.</li>
+</ul>
+</ul>
+<h3><a name="Semistructured_text">Semi-structured text</a></h3>
+
+<p>Semi-structured text includes formatted text (RTF, LaTeX) and possibly even programming or annotated natural languages. The text content is unstructured, but it has structuring around it. These are not a priority but they should be considered during design.</p>
+
+<h3><a name="Unstructured_text">Unstructured text</a></h3>
+
+<p>This works similarly to binary data except instead of being a sequence of bytes, it's a sequence of decoded characters. As such, it can accept a <em>base</em> similar to binary contexts, but also ones similar to regular text contexts.</p>
+
+<p>The context itself must specify how it's interpreting the individual characters. It could perform one of the forms of Unicode normalization, it might accept combining diacritics as part of the preceding character, or it might just provide the raw codepoints (as text, though).</p>
+
+<p>Children can either use <em>base</em>, <em>length</em>, and <em>end</em> where <em>base</em> and <em>end</em> act like in binary contexts; or they can use just <em>base</em> where it's a selector and may define a <em>limit</em>. Both forms are linearly ordered. If no locator keys are specified at all, it assumes the positional offset method.</p>
+
+<p>The context itself may declare a key <em>ignore</em> which accepts a selector which must correctly match all unselected text between children. If it is declared and it fails to match, an error should be raised.</p>
+
+<ul>
+    <li><tt>[<u>prefix</u>, <u>infix</u>, <u>suffix</u>]</tt> - All three are selectors, <em>prefix</em> must match the text before the first child, <em>infix</em> must match the text between each child, and <em>suffix</em> must match the text after the last child (if the length of the context extends past the final child's end).</li>
+<ul>
+    <li>In order to have all three be the same use <tt>"<u>selector</u>"*3</tt> TODO: are string ranges like this okay somehow?</li>
+</ul>
+    <li><tt>[<u>prefix</u>, <u>infix</u>]</tt> - For a list with two elements, it applies like this.</li>
+<ul>
+    <li>In order to define just <em>infix</em> and <em>suffix</em> use <tt>[, <u>infix</u>, <u>suffix</u>]</tt></li>
+</ul>
+    <li><tt><u>infix</u></tt> - A single string applies like this.</li>
+</ul>
+<p>Offset form:</p>
+
+<ul>
+    <li>base: Positional offset.</li>
+<ul>
+    <li><tt>[<u>offset</u>, <u>relative marker</u>]</tt> - Offset from the relative marker, same as in binary contexts.</li>
+<ul>
+    <li><strong>b</strong> - The number is the absolute position.</li>
+    <li><strong>c</strong> - The number is the offset from end of elder sibling or start of parent.</li>
+    <li><strong>e</strong> - The number is the offset, backwards, from absolute end of context.</li>
+</ul>
+    <li><tt>number</tt> - it's relative to the start of the context. That is, it assumes the marker <strong>b</strong>.</li>
+    <li>If unset, it defaults to the previous (by linear ordering) struct's end. That is, the default is <tt>0:c</tt>.</li>
+    <li>When retrieved, it returns the absolute position as a number.</li>
+</ul>
+    <li>length: The number of characters it can contain. No units can be specified.</li>
+<ul>
+    <li>It may be possible to request certain units, but this isn't currently defined.</li>
+</ul>
+    <li>end: Specify the position one character after the final character included in the packed data for this struct. Accepts the same definitions as base.</li>
+</ul>
+<p>This form also has the same constraints as binary contexts, and inferrences can be made for missing data:</p>
+
+<ul>
+    <li>base + length = end</li>
+    <li>From context's perspective: length.min = sum(c.length for c in children)</li>
+<ul>
+    <li>Assumed to be the real length if no length of the context is specified. But length, of course, maxes out at the end of the context, which will often be set when doing conversions to text from another context type.</li>
+</ul>
+</ul>
+<p>Selector form:</p>
+
+<ul>
+    <li>base: Can be a <a href="#Text_selectors">generic text selector</a>. There is no default interpretation, the selector must be specified (keystruct). It will find all sequential matches while respecting <em>limit</em>.</li>
+    <li>limit: Defines how many matches may be accepted. If the value is strictly 1 (and not a reference), the struct will not be cloned. Otherwise, it will be cloned regardless of how many are found.</li>
+<ul>
+    <li><tt>[<u>min</u>, <u>max</u>]</tt> - Min must be a number and max may be a number or the word <strong>any</strong>.</li>
+    <li><tt><u>number</u></tt> - The strict value; exactly that many.</li>
+    <li>Defaults to <tt>1</tt>.</li>
+    <li>When retrieved, it returns the actual value found.</li>
+</ul>
+    <li>ignore: If declared, contains a selector which must correctly match all of the text between matches of <em>base</em> in order for the interpretation to be valid. If the match fails, an error should be raised.</li>
+</ul>
+<h4><a name="Text_selectors">Text selectors</a></h4>
+
+<p>These are keystructs so they are declared in MPRL like <tt><u>type</u>(<u>basic</u>)</tt> or <tt><u>type</u>[<u>arg1</u>, <u>arg2</u>]</tt> or <tt><u>type</u>.<u>subtype</u>(<u>basic</u>)</tt> etc.</p>
+
+<h5><a name="regex">regex</a></h5>
+
+<p>By default (without subtyping) it constructs a <a href="https://www.regular-expressions.info/reference.html">Perl Regular Expression</a>. The author may also specify <strong>regex.perl</strong> specifically.</p>
+
+<p>Other subtypes include:</p>
+
+<ul>
+    <li><strong>sed</strong> - GNU sed utility style, see <a href="https://www.gnu.org/software/sed/manual/html_node/Regular-Expressions.html">here</a>.</li>
+    <li><strong>grep</strong> - GNU grep utility style, see <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/grep-regular-expression-syntax.html">here</a>.</li>
+    <li><strong>egreg</strong> - GNU egrep (grep extended) utility style, see <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002degrep-regular-expression-syntax.html">here</a>.</li>
+    <li>Maybe more GNU stuff? From <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/Regular-Expressions.html">here</a>.</li>
+    <li><strong>lua</strong> - Lua pattern matching, see <a href="http://lua-users.org/wiki/PatternsTutorial">here</a>.</li>
+</ul>
+<h5><a name="bounds">bounds</a></h5>
+
+<p>Decalred in MPRL like <tt>bounds[<u>start</u>, <u>end</u>]</tt> which selects text between (not including) the first <em>start</em> it finds and the nearest <em>end</em> it finds after.</p>
+
+<p>If <em>start</em> or <em>end</em> is itself a list, it can start and end at any of the respective matches. That is, it will end with any option, regardless of what it started at. <em>start</em> and <em>end</em> may also be regex by using it like <tt>bounds[regex(<u>start expression</u>), <u>end</u>]</tt> or around <em>end</em> or both separately.</p>
+
+<p>In this example, Element's value is <tt>xyz d="</tt>
+<pre><code class="mprl">string Example &#123;
+	data: &#39;stuff &lt;xyz d=&quot;&gt;&quot;&gt; aa&#39;
+	string Element &#123;
+		base: bounds[&quot;&lt;&quot;, &quot;&gt;&quot;]
+	&#125;
+&#125;
+</code></pre>
+</p>
+
+<p>Another option is <tt>bounds.recurse[<u>start</u>, <u>end</u>, <u>others</u>]</tt> which selects text between (not including) <em>start</em> and the matching <em>end</em>, but only selects the top level ones. <em>others</em> is optional, but is a varadic list of <tt><u>oStart</u>:<u>oEnd</u></tt> markers between which <em>start</em> and <em>end</em> matches are ignored.</p>
+
+<p>In this example, Element's value is <tt>xyz d=">"</tt>
+<pre><code class="mprl">string Example &#123;
+	data: &#39;stuff &lt;xyz d=&quot;&gt;&quot;&gt; aa&#39;
+	string Element &#123;
+		base: bounds.recurse[&quot;&lt;&quot;, &quot;&gt;&quot;, &#39;&quot;&#39;:&#39;&quot;&#39;, &quot;&#39;&quot;:&quot;&#39;&quot;]
+	&#125;
+&#125;
+</code></pre>
+</p>
+
+<h5><a name="scanf">scanf</a></h5>
+
+<p>From C, uses form <tt>scanf(<u>format</u>)</tt> where the format is as defined <a href="https://www.cplusplus.com/reference/cstdio/scanf/">here</a>. <tt>%p</tt> is not supported.</p>
+
+<p>While this may be used as the basing for numbers, the format must contain a single <tt>%i</tt>, <tt>%d</tt>, <tt>%u</tt>, <tt>%o</tt>, <tt>%x</tt>, or  <tt>%n</tt>. If it contains multiple of those, it must raise an error. Anything else in the format will be ignored. For some theoretical floating point struct type, it works the same, but with <tt>%f</tt>, <tt>%e</tt>, <tt>%g</tt>, and <tt>%a</tt>. For any string types, it will validate the match but not interpret the values.</p>
+
+<p>scanf itself provides a list basic value of what it matched, such that index 0 is the first matching %-specifier, etc.</p>
+
+<h2><a name="Filing">Filing</a></h2>
+
+<p>Filing contexts offer whole files. This can be thought of as essentially an archive or a folder.</p>
+
+<p>It provides the locator key <em>base</em> which is the filename (including path as appropriate) and the optional encoding key <em>type</em> which specified the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.</p>
 
 </body>
 </html>

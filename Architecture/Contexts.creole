@@ -1,5 +1,155 @@
 <<import head.html Architecture - Contexts>>
 
+<<crumbs Architecture -> Contexts>>
+<<TOC>>
+
 = Contexts
+Contexts are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.
+
+Because contexts completely change how the structs work, they block all inheritance by their children. That is, their children cannot inherit keys from the context or higher. However, a context's grandchild can inherit keys from its parent just fine.
+
+While there could be any number of context types, we currently define three: binary, textual, and filing. The root may be any type the applcation requests. For Exchange, it will be binary if the user interacts with a ROM (or whatever) and filing if the user interacts with a folder.
+
+== Binary
+As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called //serializable// types. They must define the methods //serialize// and //unserialize// in order to pack and unpack, respectively.
+
+The locator keys defined by binary contexts are:
+* base: The address to start reading from. It can be specified in three ways:
+** ##[__number__, __relative marker__]## - of which the marker can be **b**, **c**, or **e**. In this case, it'd usually be written like ##$000001:c##, for instance.
+*** **b** - The number is the absolute position.
+*** **c** - The number is the offset from end of elder sibling or start of parent.
+*** **e** - The number is the offset, backwards, from absolute end of context.
+** ##__number__## - it's relative to the start of the context. That is, it assumes the marker **b**.
+** If unset, it defaults to the previous (by linear ordering) struct's end. That is, the default is ##0:c##.
+** When retrieved, it returns the absolute position as a number.
+* size: A size, which accepts a size type declaration. Defined as follows:
+** ##"__number__ __units__"## - Any string type with a number, whitespace, then a unit name. The number may contain a decimal point.
+*** For now the units may be **bits** or **bytes**, others may be defined in the future.
+*** If a decimal point is used with **bytes** it's assumed to be the number of bits extra, so **1.1** is 1 byte and the first bit (MSB) of the next byte. There may be a way to invert the bit order in the future.
+*** **bits** does not accept a decimal point.
+** ##__number__## - It assumes the units is "bytes", but does not allow a decimal point.
+** When retrieved as a number, it should return the number based on the units used to declare it, rounded up.
+*** Requesting types which are knowledgable about the size type (or units in general) may choose a specific unit.
+** When retrieved as a string, it should return the original string declared, or the number plus ##&nbsp;**bytes**## if it was declared as a number.
+** TODO: size type proposal & link
+* end: Specify the address one byte after the final byte included in the serialized data for this struct. Accepts the same definitions as base.
+
+The locators have the following constraints, from which calculations of missing values can potentially be drawn:
+* base + size = end
+* From context's perspective: size.min = sum(c.size for c in children)
+** Assumed to be the real size if no size of the context is specified. But size, of course, maxes out at the end of the context, which will often be set when doing conversions to binary from another context type.
+
+== Textual
+Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). While there should be a decent amount of pre-defined structured text parsers, it should also be possible to declare your own in MPRL, but this process hasn't yet been defined.
+
+=== Structured text
+Structured text refers largely to object notation and markup, such as JSON, YAML, and XML.
+
+Each type will define its own selectors which are natural for that format and provide them through the //base// locator key. It may (and probably will) accept multiple types of selectors, though. Because it's common to match multiple entities, these contexts also provide a //limit// locator key. These is no linear ordering.
+
+XML will use XPATH selecotrs (and others should also accept this, since it's so general), JSON can use [[https://stedolan.github.io/jq/manual/|jq]] or [[https://tools.ietf.org/html/rfc6901|JSON Pointers]], HTML could use jQuery-type selectors, etc.
+
+* base: A selector of some sort, to find a chunk of text to interpret. What's accepted is defined per context.
+* limit: Defines how many may be accepted. If the value is strictly 1 (and not a reference), the struct will not be cloned. Otherwise, it will be cloned regardless of how many are found.
+** ##[__min__, __max__]## - Min must be a number and max may be a number or the word **any**.
+** ##__number__## - The strict value; exactly that many.
+** Defaults to ##1:any##.
+** When retrieved, it returns the actual value found.
+
+=== Semi-structured text
+Semi-structured text includes formatted text (RTF, LaTeX) and possibly even programming or annotated natural languages. The text content is unstructured, but it has structuring around it. These are not a priority but they should be considered during design.
+
+=== Unstructured text
+This works similarly to binary data except instead of being a sequence of bytes, it's a sequence of decoded characters. As such, it can accept a //base// similar to binary contexts, but also ones similar to regular text contexts.
+
+The context itself must specify how it's interpreting the individual characters. It could perform one of the forms of Unicode normalization, it might accept combining diacritics as part of the preceding character, or it might just provide the raw codepoints (as text, though).
+
+Children can either use //base//, //length//, and //end// where //base// and //end// act like in binary contexts; or they can use just //base// where it's a selector and may define a //limit//. Both forms are linearly ordered. If no locator keys are specified at all, it assumes the positional offset method.
+
+The context itself may declare a key //ignore// which accepts a selector which must correctly match all unselected text between children. If it is declared and it fails to match, an error should be raised.
+* ##[__prefix__, __infix__, __suffix__]## - All three are selectors, //prefix// must match the text before the first child, //infix// must match the text between each child, and //suffix// must match the text after the last child (if the length of the context extends past the final child's end).
+** In order to have all three be the same use ##"__selector__"*3## TODO: are string ranges like this okay somehow?
+* ##[__prefix__, __infix__]## - For a list with two elements, it applies like this.
+** In order to define just //infix// and //suffix// use ##[, __infix__, __suffix__]##
+* ##__infix__## - A single string applies like this.
+
+Offset form:
+* base: Positional offset.
+** ##[__offset__, __relative marker__]## - Offset from the relative marker, same as in binary contexts.
+*** **b** - The number is the absolute position.
+*** **c** - The number is the offset from end of elder sibling or start of parent.
+*** **e** - The number is the offset, backwards, from absolute end of context.
+** ##number## - it's relative to the start of the context. That is, it assumes the marker **b**.
+** If unset, it defaults to the previous (by linear ordering) struct's end. That is, the default is ##0:c##.
+** When retrieved, it returns the absolute position as a number.
+* length: The number of characters it can contain. No units can be specified.
+** It may be possible to request certain units, but this isn't currently defined.
+* end: Specify the position one character after the final character included in the packed data for this struct. Accepts the same definitions as base.
+
+This form also has the same constraints as binary contexts, and inferrences can be made for missing data:
+* base + length = end
+* From context's perspective: length.min = sum(c.length for c in children)
+** Assumed to be the real length if no length of the context is specified. But length, of course, maxes out at the end of the context, which will often be set when doing conversions to text from another context type.
+
+Selector form:
+* base: Can be a [[#Text selectors|generic text selector]]. There is no default interpretation, the selector must be specified (keystruct). It will find all sequential matches while respecting //limit//.
+* limit: Defines how many matches may be accepted. If the value is strictly 1 (and not a reference), the struct will not be cloned. Otherwise, it will be cloned regardless of how many are found.
+** ##[__min__, __max__]## - Min must be a number and max may be a number or the word **any**.
+** ##__number__## - The strict value; exactly that many.
+** Defaults to ##1##.
+** When retrieved, it returns the actual value found.
+* ignore: If declared, contains a selector which must correctly match all of the text between matches of //base// in order for the interpretation to be valid. If the match fails, an error should be raised.
+
+==== Text selectors
+These are keystructs so they are declared in MPRL like ##__type__(__basic__)## or ##__type__[__arg1__, __arg2__]## or ##__type__.__subtype__(__basic__)## etc.
+
+===== regex
+By default (without subtyping) it constructs a [[https://www.regular-expressions.info/reference.html|Perl Regular Expression]]. The author may also specify **regex.perl** specifically.
+
+Other subtypes include:
+* **sed** - GNU sed utility style, see [[https://www.gnu.org/software/sed/manual/html_node/Regular-Expressions.html|here]].
+* **grep** - GNU grep utility style, see [[https://www.gnu.org/software/findutils/manual/html_node/find_html/grep-regular-expression-syntax.html|here]].
+* **egreg** - GNU egrep (grep extended) utility style, see [[https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002degrep-regular-expression-syntax.html|here]].
+* Maybe more GNU stuff? From [[https://www.gnu.org/software/findutils/manual/html_node/find_html/Regular-Expressions.html|here]].
+* **lua** - Lua pattern matching, see [[http://lua-users.org/wiki/PatternsTutorial|here]].
+
+===== bounds
+Decalred in MPRL like ##bounds[__start__, __end__]## which selects text between (not including) the first //start// it finds and the nearest //end// it finds after.
+
+If //start// or //end// is itself a list, it can start and end at any of the respective matches. That is, it will end with any option, regardless of what it started at. //start// and //end// may also be regex by using it like ##bounds[regex(__start expression__), __end__]## or around //end// or both separately.
+
+In this example, Element's value is ##xyz d="##
+<<code mprl
+string Example {
+	data: 'stuff <xyz d=">"> aa'
+	string Element {
+		base: bounds["<", ">"]
+	}
+}
+>>
+
+Another option is ##bounds.recurse[__start__, __end__, __others__]## which selects text between (not including) //start// and the matching //end//, but only selects the top level ones. //others// is optional, but is a varadic list of ##__oStart__:__oEnd__## markers between which //start// and //end// matches are ignored.
+
+In this example, Element's value is ##xyz d=">"##
+<<code mprl
+string Example {
+	data: 'stuff <xyz d=">"> aa'
+	string Element {
+		base: bounds.recurse["<", ">", '"':'"', "'":"'"]
+	}
+}
+>>
+
+===== scanf
+From C, uses form ##scanf(__format__)## where the format is as defined [[https://www.cplusplus.com/reference/cstdio/scanf/|here]]. ##%p## is not supported.
+
+While this may be used as the basing for numbers, the format must contain a single ##%i##, ##%d##, ##%u##, ##%o##, ##%x##, or  ##%n##. If it contains multiple of those, it must raise an error. Anything else in the format will be ignored. For some theoretical floating point struct type, it works the same, but with ##%f##, ##%e##, ##%g##, and ##%a##. For any string types, it will validate the match but not interpret the values.
+
+scanf itself provides a list basic value of what it matched, such that index 0 is the first matching %-specifier, etc.
+
+== Filing
+Filing contexts offer whole files. This can be thought of as essentially an archive or a folder.
+
+It provides the locator key //base// which is the filename (including path as appropriate) and the optional encoding key //type// which specified the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.
 
 <<import foot.html>>
