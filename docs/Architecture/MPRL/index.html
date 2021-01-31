@@ -95,7 +95,7 @@
 <p>Structs declare a type when they're defined. There are two general classes of types: dynamic and static, as defined <a href="#Terminology">above</a>. If the struct is being defined as a root or child struct (as opposed to being in a key, etc), it may also declare a name.</p>
 
 <p>The basic form of a struct is:
-<pre><code class="mprl">type StructName &#123;
+<pre><code class="language-mprl">type StructName &#123;
 	key: value
 	key2: value2
 	# ... more keys, children ...
@@ -113,7 +113,7 @@
 
 <p>When using a struct in place of a value, there are two ways to define it: normally or by basic value only. When the basic value is a list, the parenthesis are optional.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	normal: type &#123;
 		keys: go here
 	&#125;
@@ -124,7 +124,7 @@
 </code></pre>
 <p>These may be referred to as a keystruct when they're the value of a key. However, they can also be declared as an element in a list or as the value in a different struct declaration using the basic version. This latter case is called <a href="../../Architecture/Value_proxying">value proxying</a>.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	proxy: string(number(1))
 	&quot;same meaning&quot;: &quot;1&quot;
 &#125;
@@ -151,7 +151,7 @@
 
 <p>Finally, there is a notion of linear ordering to structs which can be tricky. If the root has two basic structs, it's simply the order they're defined in. But given this case:</p>
 
-<pre><code class="mprl">graphic A &#123;
+<pre><code class="language-mprl">graphic A &#123;
 	width: number &#123; size: 2 &#125;
 	height: number &#123; size: 2 &#125;
 &#125;
@@ -184,7 +184,7 @@
 
 <p>There are two quoting methods for single-line strings: surrounding quotation marks and dash quotes.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	quoted: &quot;allows commas, and other stuff unquoted can&#39;t @&#123;&#125;[]():#&quot;
 	dashed: -- this will even eat commas, # comments, etc. Be careful!
 	# Only a newline can end dashed strings!
@@ -218,7 +218,7 @@
 
 <p>One may use any number of backticks (<tt>`</tt>) to begin a multiline string. A segment ends when that same amount is encountered again, after encountering something other than a backtick (that is, each segment must contain something, they are incapable of being empty). Sequential multiline string segments will automatically concatenate, so in order to separate two distinct multiline strings, they must be separated by an explicit comma. Comments do not separate them.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	key: &#96;&#96;&#96;three ticks&#96;&#96;&#96; # A comment is fine!
 	&#96;&#96;part of &quot;key&quot;
 	still part of &quot;key&quot;&#96;&#96;
@@ -235,7 +235,7 @@
 
 <p>There are three forms of escape sequences. While they are meant to represent what they're named as, they all translate to unicode codepoints.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	bytes: &quot;$05$55$1a&quot;
 	codepoints: &quot;$(1f3f4)$(200d)$(2620)$(fe0f)&quot;
 	specials: &quot;$$ $&quot; $z $n $r $t&quot;
@@ -263,7 +263,7 @@
 
 <p>Invalid characters may interrupt the literal, cause it to actually be a value struct, or be an actual error, depending on where it's placed. Dollar signs (<tt>$</tt>) are interpreted as the literal character rather than an escape sequence, because literals do not contains escape sequences as there's no need for keywords to use characters that would need to be escaped.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	keyword: true
 	annoying: Don&#39;t use prose but it works I guess. Yes that apostrophe does work.
 	&quot;in a list&quot;: [
@@ -280,7 +280,7 @@
 
 <p>Hexadecimal is specified with a prefix of <tt>$</tt> which is a typical addressing marker and, coming from a ROM hacking perspective, hexnums will typically be used as the <em>base</em> for serializable structs.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	decimal: 12345
 	hexdec: $12abc
 &#125;
@@ -289,7 +289,7 @@
 
 <p>Lists are arbitrary sequences of values. A typical list starts with a left square bracket (<tt>[</tt>) and end with a right square bracket (<tt>]</tt>). Values inside a list may be separated by commas or newlines and comments are allowed. However there are also list-creating operators and ranges.</p>
 
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	# All these values are functionally equivalent.
 	normal1: [1, 2, 3]
 	normal2: [
@@ -407,7 +407,7 @@
 
 <p>If the first letter of a rule name is uppercase, it's intended to represent a non-terminal; while lowercase is intended to represent a terminal.</p>
 
-<pre><code class="yabnf">Root = (Struct | Comment)*
+<pre><code class="language-yabnf">Root = (Struct | Comment)*
 
 comment  = &quot;#&quot; .* $
 digit    = [0-9]

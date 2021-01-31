@@ -1,9 +1,10 @@
 var base = $('script[src$="common.js"]').attr("src").replace("common.js", "");
+var languages = ["json", "python", "mprl", "hexdump"];
 
 var count = 0;
 function retr() {
-	if (++count == 3) {
-		$('pre code').each(function (i, block) {
+	if (++count == languages.length) {
+		$('pre code[class^="language-"]').each(function (i, block) {
 			hljs.highlightBlock(block, postProcess);
 		});
 	}
@@ -12,9 +13,10 @@ $.getScript(base + "highlight.js", function () {
 	hljs.configure({
 		tabReplace: "    ",
 	});
-	$.getScript(base + "languages/json.js", retr);
-	$.getScript(base + "languages/python.js", retr);
-	$.getScript(base + "languages/mprl.js", retr);
+	for (let x of languages) {
+		console.log(x);
+		$.getScript(base + "languages/" + x + ".js", retr);
+	}
 })
 
 function postProcess(block) {

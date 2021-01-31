@@ -67,7 +67,7 @@
 
 <p>When a member of the group which is not the target is invalidated, the target is invalidated, but not the other members. When the target is updated, it invalidates all members besides itself. When the target is requested but does not have a value, it can interpret the value from the reference group members only if all members who have a value will convert to the same value (it is an error if they have divergent values, in this situation). When a member does not have a value, they must retrieve it through the target (which can infer it from other members). Similar to this pseudocode:</p>
 
-<pre><code class="python">def target_invalidated_or_updated(target, members):
+<pre><code class="language-python">def target_invalidated_or_updated(target, members):
 	for member in members:
 		member.invalidate()
 
@@ -92,7 +92,7 @@ def get_member_value(member, target, other_members):
 	return member.value
 </code></pre>
 <p>References to references chain rather than get absorbed. For instance, in the case of something like:
-<pre><code class="mprl">static Example &#123;
+<pre><code class="language-mprl">static Example &#123;
 	a: 1
 	b: @this.a
 	c: @this.a

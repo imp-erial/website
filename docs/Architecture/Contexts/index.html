@@ -196,7 +196,7 @@
 <p>If <em>start</em> or <em>end</em> is itself a list, it can start and end at any of the respective matches. That is, it will end with any option, regardless of what it started at. <em>start</em> and <em>end</em> may also be regex by using it like <tt>bounds[regex(<u>start expression</u>), <u>end</u>]</tt> or around <em>end</em> or both separately.</p>
 
 <p>In this example, Element's value is <tt>xyz d="</tt>
-<pre><code class="mprl">string Example &#123;
+<pre><code class="language-mprl">string Example &#123;
 	data: &#39;stuff &lt;xyz d=&quot;&gt;&quot;&gt; aa&#39;
 	string Element &#123;
 		base: bounds[&quot;&lt;&quot;, &quot;&gt;&quot;]
@@ -208,7 +208,7 @@
 <p>Another option is <tt>bounds.recurse[<u>start</u>, <u>end</u>, <u>others</u>]</tt> which selects text between (not including) <em>start</em> and the matching <em>end</em>, but only selects the top level ones. <em>others</em> is optional, but is a varadic list of <tt><u>oStart</u>:<u>oEnd</u></tt> markers between which <em>start</em> and <em>end</em> matches are ignored.</p>
 
 <p>In this example, Element's value is <tt>xyz d=">"</tt>
-<pre><code class="mprl">string Example &#123;
+<pre><code class="language-mprl">string Example &#123;
 	data: &#39;stuff &lt;xyz d=&quot;&gt;&quot;&gt; aa&#39;
 	string Element &#123;
 		base: bounds.recurse[&quot;&lt;&quot;, &quot;&gt;&quot;, &#39;&quot;&#39;:&#39;&quot;&#39;, &quot;&#39;&quot;:&quot;&#39;&quot;]

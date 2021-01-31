@@ -215,7 +215,7 @@ sub make_code {
 	my ($class, $code) = @_;
 	$code =~ s/>~(~*)>/>$1>/g; # Escape sequence for >>
 	$code = escape_html($code);
-	return "<pre><code class=\"$class\">$code</code></pre>\n";
+	return "<pre><code class=\"language-$class\">$code</code></pre>\n";
 }
 
 sub make_crumbs {
