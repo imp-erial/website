@@ -330,7 +330,7 @@ if ($help) {
 
 	# First create the folder and clear it
 	my @files = glob( "$out/*" );
-	@files = grep(!m%^$out/(scripts|styles|\.git|README.md|CNAME)%, @files);
+	@files = grep(!m%^$out/(static|\.git|README.md|CNAME)%, @files);
 	remove(\1, {glob => 0}, @files);
 
 	# Now build according to the structure:
