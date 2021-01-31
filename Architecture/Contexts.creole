@@ -4,14 +4,14 @@
 <<TOC>>
 
 = Contexts
-Contexts are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.
+Context providers are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.
 
-Because contexts completely change how the structs work, they block all inheritance by their children. That is, their children cannot inherit keys from the context or higher. However, a context's grandchild can inherit keys from its parent just fine.
+Because contexts completely change how the structs work, they block all inheritance by their children. That is, their children cannot inherit keys from the context provider or higher. However, a context provider's grandchild can inherit keys from its parent just fine.
 
 While there could be any number of context types, we currently define three: binary, textual, and filing. The root may be any type the applcation requests. For Exchange, it will be binary if the user interacts with a ROM (or whatever) and filing if the user interacts with a folder.
 
 == Binary
-As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called //serializable// types. They must define the methods //serialize// and //unserialize// in order to pack and unpack, respectively.
+As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called //serializable// types. They must define the methods //serialize// and //unserialize// in order to pack and unpack, respectively. The basic binary context provider is the //bin// type.
 
 The locator keys defined by binary contexts are:
 * base: The address to start reading from. It can be specified in three ways:
@@ -43,11 +43,11 @@ The locators have the following constraints, from which calculations of missing 
 Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). While there should be a decent amount of pre-defined structured text parsers, it should also be possible to declare your own in MPRL, but this process hasn't yet been defined.
 
 === Structured text
-Structured text refers largely to object notation and markup, such as JSON, YAML, and XML.
+Structured text refers largely to object notation and markup, such as JSON, YAML, and XML. The basic structured text context provider is the //markup// type.
 
 Each type will define its own selectors which are natural for that format and provide them through the //base// locator key. It may (and probably will) accept multiple types of selectors, though. Because it's common to match multiple entities, these contexts also provide a //limit// locator key. These is no linear ordering.
 
-XML will use XPATH selecotrs (and others should also accept this, since it's so general), JSON can use [[https://stedolan.github.io/jq/manual/|jq]] or [[https://tools.ietf.org/html/rfc6901|JSON Pointers]], HTML could use jQuery-type selectors, etc.
+XML will use XPATH selectors (and others should also accept this, since it's so general), JSON can use [[https://stedolan.github.io/jq/manual/|jq]] or [[https://tools.ietf.org/html/rfc6901|JSON Pointers]], HTML could use [[https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors|CSS Selectors]] probably with jQuery extensions, etc.
 
 * base: A selector of some sort, to find a chunk of text to interpret. What's accepted is defined per context.
 * limit: Defines how many may be accepted. If the value is strictly 1 (and not a reference), the struct will not be cloned. Otherwise, it will be cloned regardless of how many are found.
@@ -60,7 +60,7 @@ XML will use XPATH selecotrs (and others should also accept this, since it's so 
 Semi-structured text includes formatted text (RTF, LaTeX) and possibly even programming or annotated natural languages. The text content is unstructured, but it has structuring around it. These are not a priority but they should be considered during design.
 
 === Unstructured text
-This works similarly to binary data except instead of being a sequence of bytes, it's a sequence of decoded characters. As such, it can accept a //base// similar to binary contexts, but also ones similar to regular text contexts.
+This works similarly to binary data except instead of being a sequence of bytes, it's a sequence of decoded characters. As such, it can accept a //base// similar to binary contexts, but also ones similar to regular text contexts. The basic unstructured text context provider is the //string// type.
 
 The context itself must specify how it's interpreting the individual characters. It could perform one of the forms of Unicode normalization, it might accept combining diacritics as part of the preceding character, or it might just provide the raw codepoints (as text, though).
 
@@ -109,12 +109,12 @@ By default (without subtyping) it constructs a [[https://www.regular-expressions
 Other subtypes include:
 * **sed** - GNU sed utility style, see [[https://www.gnu.org/software/sed/manual/html_node/Regular-Expressions.html|here]].
 * **grep** - GNU grep utility style, see [[https://www.gnu.org/software/findutils/manual/html_node/find_html/grep-regular-expression-syntax.html|here]].
-* **egreg** - GNU egrep (grep extended) utility style, see [[https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002degrep-regular-expression-syntax.html|here]].
+* **egrep** - GNU egrep (grep extended) utility style, see [[https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002degrep-regular-expression-syntax.html|here]].
 * Maybe more GNU stuff? From [[https://www.gnu.org/software/findutils/manual/html_node/find_html/Regular-Expressions.html|here]].
 * **lua** - Lua pattern matching, see [[http://lua-users.org/wiki/PatternsTutorial|here]].
 
 ===== bounds
-Decalred in MPRL like ##bounds[__start__, __end__]## which selects text between (not including) the first //start// it finds and the nearest //end// it finds after.
+Declared in MPRL like ##bounds[__start__, __end__]## which selects text between (not including) the first //start// it finds and the nearest //end// it finds after.
 
 If //start// or //end// is itself a list, it can start and end at any of the respective matches. That is, it will end with any option, regardless of what it started at. //start// and //end// may also be regex by using it like ##bounds[regex(__start expression__), __end__]## or around //end// or both separately.
 
@@ -148,8 +148,8 @@ While this may be used as the basing for numbers, the format must contain a sing
 scanf itself provides a list basic value of what it matched, such that index 0 is the first matching %-specifier, etc.
 
 == Filing
-Filing contexts offer whole files. This can be thought of as essentially an archive or a folder.
+Filing contexts offer whole files. This can be thought of as essentially an archive or a folder. The basic filing context provider is the //folder// type.
 
-It provides the locator key //base// which is the filename (including path as appropriate) and the optional encoding key //type// which specified the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.
+It provides the locator key //base// which is the filename (including path as appropriate) and the optional encoding key //type// which specifies the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.
 
 <<import foot.html>>

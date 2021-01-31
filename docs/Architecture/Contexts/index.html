@@ -33,15 +33,15 @@
 </ol>
 <h1><a name="Contexts">Contexts</a></h1>
 
-<p>Contexts are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.</p>
+<p>Context providers are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.</p>
 
-<p>Because contexts completely change how the structs work, they block all inheritance by their children. That is, their children cannot inherit keys from the context or higher. However, a context's grandchild can inherit keys from its parent just fine.</p>
+<p>Because contexts completely change how the structs work, they block all inheritance by their children. That is, their children cannot inherit keys from the context provider or higher. However, a context provider's grandchild can inherit keys from its parent just fine.</p>
 
 <p>While there could be any number of context types, we currently define three: binary, textual, and filing. The root may be any type the applcation requests. For Exchange, it will be binary if the user interacts with a ROM (or whatever) and filing if the user interacts with a folder.</p>
 
 <h2><a name="Binary">Binary</a></h2>
 
-<p>As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called <em>serializable</em> types. They must define the methods <em>serialize</em> and <em>unserialize</em> in order to pack and unpack, respectively.</p>
+<p>As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called <em>serializable</em> types. They must define the methods <em>serialize</em> and <em>unserialize</em> in order to pack and unpack, respectively. The basic binary context provider is the <em>bin</em> type.</p>
 
 <p>The locator keys defined by binary contexts are:</p>
 
@@ -91,11 +91,11 @@
 
 <h3><a name="Structured_text">Structured text</a></h3>
 
-<p>Structured text refers largely to object notation and markup, such as JSON, YAML, and XML.</p>
+<p>Structured text refers largely to object notation and markup, such as JSON, YAML, and XML. The basic structured text context provider is the <em>markup</em> type.</p>
 
 <p>Each type will define its own selectors which are natural for that format and provide them through the <em>base</em> locator key. It may (and probably will) accept multiple types of selectors, though. Because it's common to match multiple entities, these contexts also provide a <em>limit</em> locator key. These is no linear ordering.</p>
 
-<p>XML will use XPATH selecotrs (and others should also accept this, since it's so general), JSON can use <a href="https://stedolan.github.io/jq/manual/">jq</a> or <a href="https://tools.ietf.org/html/rfc6901">JSON Pointers</a>, HTML could use jQuery-type selectors, etc.</p>
+<p>XML will use XPATH selectors (and others should also accept this, since it's so general), JSON can use <a href="https://stedolan.github.io/jq/manual/">jq</a> or <a href="https://tools.ietf.org/html/rfc6901">JSON Pointers</a>, HTML could use <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors">CSS Selectors</a> probably with jQuery extensions, etc.</p>
 
 <ul>
     <li>base: A selector of some sort, to find a chunk of text to interpret. What's accepted is defined per context.</li>
@@ -113,7 +113,7 @@
 
 <h3><a name="Unstructured_text">Unstructured text</a></h3>
 
-<p>This works similarly to binary data except instead of being a sequence of bytes, it's a sequence of decoded characters. As such, it can accept a <em>base</em> similar to binary contexts, but also ones similar to regular text contexts.</p>
+<p>This works similarly to binary data except instead of being a sequence of bytes, it's a sequence of decoded characters. As such, it can accept a <em>base</em> similar to binary contexts, but also ones similar to regular text contexts. The basic unstructured text context provider is the <em>string</em> type.</p>
 
 <p>The context itself must specify how it's interpreting the individual characters. It could perform one of the forms of Unicode normalization, it might accept combining diacritics as part of the preceding character, or it might just provide the raw codepoints (as text, though).</p>
 
@@ -188,13 +188,13 @@
 <ul>
     <li><strong>sed</strong> - GNU sed utility style, see <a href="https://www.gnu.org/software/sed/manual/html_node/Regular-Expressions.html">here</a>.</li>
     <li><strong>grep</strong> - GNU grep utility style, see <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/grep-regular-expression-syntax.html">here</a>.</li>
-    <li><strong>egreg</strong> - GNU egrep (grep extended) utility style, see <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002degrep-regular-expression-syntax.html">here</a>.</li>
+    <li><strong>egrep</strong> - GNU egrep (grep extended) utility style, see <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002degrep-regular-expression-syntax.html">here</a>.</li>
     <li>Maybe more GNU stuff? From <a href="https://www.gnu.org/software/findutils/manual/html_node/find_html/Regular-Expressions.html">here</a>.</li>
     <li><strong>lua</strong> - Lua pattern matching, see <a href="http://lua-users.org/wiki/PatternsTutorial">here</a>.</li>
 </ul>
 <h5><a name="bounds">bounds</a></h5>
 
-<p>Decalred in MPRL like <tt>bounds[<u>start</u>, <u>end</u>]</tt> which selects text between (not including) the first <em>start</em> it finds and the nearest <em>end</em> it finds after.</p>
+<p>Declared in MPRL like <tt>bounds[<u>start</u>, <u>end</u>]</tt> which selects text between (not including) the first <em>start</em> it finds and the nearest <em>end</em> it finds after.</p>
 
 <p>If <em>start</em> or <em>end</em> is itself a list, it can start and end at any of the respective matches. That is, it will end with any option, regardless of what it started at. <em>start</em> and <em>end</em> may also be regex by using it like <tt>bounds[regex(<u>start expression</u>), <u>end</u>]</tt> or around <em>end</em> or both separately.</p>
 
@@ -230,9 +230,9 @@
 
 <h2><a name="Filing">Filing</a></h2>
 
-<p>Filing contexts offer whole files. This can be thought of as essentially an archive or a folder.</p>
+<p>Filing contexts offer whole files. This can be thought of as essentially an archive or a folder. The basic filing context provider is the <em>folder</em> type.</p>
 
-<p>It provides the locator key <em>base</em> which is the filename (including path as appropriate) and the optional encoding key <em>type</em> which specified the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.</p>
+<p>It provides the locator key <em>base</em> which is the filename (including path as appropriate) and the optional encoding key <em>type</em> which specifies the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.</p>
 
 </body>
 </html>
