@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Imperial Exchange - Architecture</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+	<script type="text/javascript" src="../../../static/scripts/common.js"></script>
+	<link rel="stylesheet" type="text/css" href="../../../static/styles/common.css">
+	<link rel="stylesheet" type="text/css" href="../../../static/styles/zenburn.css">
+</head>
+<body>
+<div class="breadcrumbs"><span class="breadcrumb"><a href="../../../Architecture">Architecture</a></span><span class="breadcrumb"><a href="../../../Architecture/Tools">Tools</a></span><span class="breadcrumb">Exchange</span></div>
+<div class="toc"><div class="toc-header">Contents</div><ol>
+    <li><a href="#A_process_walkthrough">A process walk-through</a></li>
+<ol>
+    <li><a href="#Exporting">Exporting</a></li>
+    <li><a href="#Importing">Importing</a></li>
+</ol>
+</ol>
+</div><h1><a name="Exchange">Exchange</a></h1>
+
+<p>Imperial Exchange is a tool which is the fundamental use case of the Imperial library. Its goal is to use an MPRL to unpack ROMs (or whatever) and convert the unpacked resources to ones that are easier to modify then export them to the file system. Once modified, Exchange can import the data from the file system back into the structs defined by the same MPRL file then pack them back into the original ROM (don't forget to make a backup, just in case).</p>
+
+<div class="mermaid">graph LR
+    Bin(Packed file) -->|unpack| Ex
+    Ex(Exchange) -->|pack| Bin
+    Ex -->|export| FS
+    FS(File system) -->|import| Ex
+</div><p>With this system, Exchange makes it so you can write one description which allows you to both extract and patch resources into a ROM, instead of writing separate routines in a custom utility to manage both the ROM's internal formats and whatever external formats you want to use including the conversions between them.</p>
+
+<h2><a name="A_process_walkthrough">A process walk-through</a></h2>
+
+<p>The high level design is relatively simple. Imperial manage un/packing from the ROM, and Exchange repurposes that ability to also make it mange importing and exporting by defining types for common file formats and converters between struct types you'd use for processing ROMs and those.</p>
+
+<p>Let's go through this given this MPRL description:
+<<code mprl
+graphic Example {
+    base: $003d44</p>
+
+<ol>
+    <li>Format:
+    dimensions: [8, 8]
+    pixel: 0bw
+    read: DULR
+}
+>></li>
+</ol>
+<h3><a name="Exporting">Exporting</a></h3>
+
+<p>And this ROM file:
+<pre><code class="hexdump">########   0  1  2  3  4  5  6  7   8  9  a  b  c  d  e  f
+00003d30  47 01 00 00 c7 45 08 00  01 00 00 41 83 fd 01 0f  |G....E.....A....|
+00003d40  87 aa 01 00 10 60 42 40  60 24 00 00 ff ff 49 89  |.....&#96;B@&#96;$....I.|
+00003d50  cf c7 45 08 10 00 00 00  c7 45 0c 08 00 00 00 e9  |..E......E......|
+</code></pre>
+</p>
+
+<p>Imperial extracts the bytes <tt>10 60 42 40 60 24 00 00</tt> as 1bpp pixel where 0 is white and 1 is black. The <em>read</em> key expresses the order the pixels are placed into the image when read linearly (if you were to read MSB of the first byte to LSB of the last byte), which is Down &#8594; Up then Left &#8594; Right; or starting at the left-most column, write pixels starting from the bottom going up, then move one right, and begin writing again.</p>
+
+<p>As an example, given a 4x4 graphic with pixels of <tt>abcdefghijklmnop</tt>, the pixels would be written to the image in DULR as so:</p>
+
+<pre>
+d h l p
+c g k o
+b f j n
+a e i m
+</pre>
+
+<p>Thus the bytes produce the image:
+<img src="/static/images/exchange_example_1.png" alt="Image extracted by Imperial." /></p>
+
+<p>Exchange then figures out how to convert a <em>graphic</em> type to a <em>png</em> (for instance) and saves the file to the file system as <tt>Example.png</tt>. Since <em>graphic</em> is the most generic 2D image structure, it would have a direct conversion between it and <em>png</em> (and other image types) defined, so it's not particularly complex in this example.</p>
+
+<h3><a name="Importing">Importing</a></h3>
+
+<p>Say we've now edited the image to be a little cleaner looking:
+<img src="/static/images/exchange_example_2.png" alt="Image edited by Hacker-chan." /></p>
+
+<p>Exchange loads the MPRL file and sees the struct named Example. It knows that there should be a file with that name defined on the file system in the CWD. However, it doesn't necessarily know what image format it was exported to. So it searches CWD for <tt>Example.*</tt> and finds our <tt>Example.png</tt>. It easily identifies that it's a PNG file and loads it as a <em>png</em> struct via something like:</p>
+
+<pre><code class="python">with open(&quot;Example.png&quot;, &quot;rb&quot;) as f:
+	png = Png()
+	png.fromFile(f)
+</code></pre>
+<p>Exchange then finds the conversion path from <em>png</em> to <em>graphic</em>, which is direct in this case, and translates the data from the <em>png</em> struct into the Example instance.</p>
+
+<p>In order to pack the data, Imperial must read from the pixel data in the same way as before. It starts at the bottom left corner and writes a 0 if it's white and a 1 if it's black and keeps going up until it wraps around to the next column.</p>
+
+<p>We end up with the serialized data of: <tt>00 20 44 20 20 44 20 00</tt></p>
+
+<p>Imperial then inserts that data back into the ROM at the requested position:
+<pre><code class="hexdump">########   0  1  2  3  4  5  6  7   8  9  a  b  c  d  e  f
+00003d30  47 01 00 00 c7 45 08 00  01 00 00 41 83 fd 01 0f  |G....E.....A....|
+00003d40  87 aa 01 00 00 20 44 20  20 44 20 00 ff ff 49 89  |..... D  D ...I.|
+00003d50  cf c7 45 08 10 00 00 00  c7 45 0c 08 00 00 00 e9  |..E......E......|
+</code></pre>
+</p>
+
+<script src="https://unpkg.com/mermaid@8.8.4/dist/mermaid.js"></script><script>mermaid.initialize({startOnLoad: true})</script></body>
+</html>

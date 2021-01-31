@@ -1,0 +1,83 @@
+<<import head.html Architecture - Tools - Exchange>>
+
+<<crumbs Architecture -> Tools -> Exchange>>
+<<TOC>>
+
+= Exchange
+Imperial Exchange is a tool which is the fundamental use case of the Imperial library. Its goal is to use an MPRL to unpack ROMs (or whatever) and convert the unpacked resources to ones that are easier to modify then export them to the file system. Once modified, Exchange can import the data from the file system back into the structs defined by the same MPRL file then pack them back into the original ROM (don't forget to make a backup, just in case).
+
+<<mermaid
+graph LR
+    Bin(Packed file) -->|unpack| Ex
+    Ex(Exchange) -->|pack| Bin
+    Ex -->|export| FS
+    FS(File system) -->|import| Ex
+>>
+
+With this system, Exchange makes it so you can write one description which allows you to both extract and patch resources into a ROM, instead of writing separate routines in a custom utility to manage both the ROM's internal formats and whatever external formats you want to use including the conversions between them.
+
+== A process walk-through
+The high level design is relatively simple. Imperial manage un/packing from the ROM, and Exchange repurposes that ability to also make it mange importing and exporting by defining types for common file formats and converters between struct types you'd use for processing ROMs and those.
+
+Let's go through this given this MPRL description:
+<<code mprl
+graphic Example {
+    base: $003d44
+    # Format:
+    dimensions: [8, 8]
+    pixel: 0bw
+    read: DULR
+}
+>>
+
+=== Exporting
+And this ROM file:
+<<code hexdump
+########   0  1  2  3  4  5  6  7   8  9  a  b  c  d  e  f
+00003d30  47 01 00 00 c7 45 08 00  01 00 00 41 83 fd 01 0f  |G....E.....A....|
+00003d40  87 aa 01 00 10 60 42 40  60 24 00 00 ff ff 49 89  |.....`B@`$....I.|
+00003d50  cf c7 45 08 10 00 00 00  c7 45 0c 08 00 00 00 e9  |..E......E......|
+>>
+
+Imperial extracts the bytes ##10 60 42 40 60 24 00 00## as 1bpp pixel where 0 is white and 1 is black. The //read// key expresses the order the pixels are placed into the image when read linearly (if you were to read MSB of the first byte to LSB of the last byte), which is Down → Up then Left → Right; or starting at the left-most column, write pixels starting from the bottom going up, then move one right, and begin writing again.
+
+As an example, given a 4x4 graphic with pixels of ##abcdefghijklmnop##, the pixels would be written to the image in DULR as so:
+{{{
+d h l p
+c g k o
+b f j n
+a e i m
+}}}
+
+Thus the bytes produce the image:
+{{/static/images/exchange_example_1.png|Image extracted by Imperial.}}
+
+Exchange then figures out how to convert a //graphic// type to a //png// (for instance) and saves the file to the file system as ##Example.png##. Since //graphic// is the most generic 2D image structure, it would have a direct conversion between it and //png// (and other image types) defined, so it's not particularly complex in this example.
+
+=== Importing
+Say we've now edited the image to be a little cleaner looking:
+{{/static/images/exchange_example_2.png|Image edited by Hacker-chan.}}
+
+Exchange loads the MPRL file and sees the struct named Example. It knows that there should be a file with that name defined on the file system in the CWD. However, it doesn't necessarily know what image format it was exported to. So it searches CWD for ##Example.*## and finds our ##Example.png##. It easily identifies that it's a PNG file and loads it as a //png// struct via something like:
+
+<<code python
+with open("Example.png", "rb") as f:
+	png = Png()
+	png.fromFile(f)
+>>
+
+Exchange then finds the conversion path from //png// to //graphic//, which is direct in this case, and translates the data from the //png// struct into the Example instance.
+
+In order to pack the data, Imperial must read from the pixel data in the same way as before. It starts at the bottom left corner and writes a 0 if it's white and a 1 if it's black and keeps going up until it wraps around to the next column.
+
+We end up with the serialized data of: ##00 20 44 20 20 44 20 00##
+
+Imperial then inserts that data back into the ROM at the requested position:
+<<code hexdump
+########   0  1  2  3  4  5  6  7   8  9  a  b  c  d  e  f
+00003d30  47 01 00 00 c7 45 08 00  01 00 00 41 83 fd 01 0f  |G....E.....A....|
+00003d40  87 aa 01 00 00 20 44 20  20 44 20 00 ff ff 49 89  |..... D  D ...I.|
+00003d50  cf c7 45 08 10 00 00 00  c7 45 0c 08 00 00 00 e9  |..E......E......|
+>>
+
+<<import foot.html>>
