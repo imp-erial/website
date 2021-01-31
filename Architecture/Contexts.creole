@@ -11,7 +11,7 @@ Because contexts completely change how the structs work, they block all inherita
 While there could be any number of context types, we currently define three: binary, textual, and filing. The root may be any type the applcation requests. For Exchange, it will be binary if the user interacts with a ROM (or whatever) and filing if the user interacts with a folder.
 
 == Binary
-As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called //serializable// types. They must define the methods //serialize// and //unserialize// in order to pack and unpack, respectively. The basic binary context provider is the //bin// type.
+As the name implies, they provide access to binary data. Struct types which can be used in a binary context are called //serializable// types. They must define the methods //serialize// and //unserialize// in order to pack and unpack, respectively. The basic binary context provider is the //bin// type.
 
 The locator keys defined by binary contexts are:
 * base: The address to start reading from. It can be specified in three ways:
@@ -40,7 +40,7 @@ The locators have the following constraints, from which calculations of missing 
 ** Assumed to be the real size if no size of the context is specified. But size, of course, maxes out at the end of the context, which will often be set when doing conversions to binary from another context type.
 
 == Textual
-Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). While there should be a decent amount of pre-defined structured text parsers, it should also be possible to declare your own in MPRL, but this process hasn't yet been defined.
+Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). Struct types which can be used in a textual context are called //stringifiable// types. They must define the methods //stringify// and //parse// in order to pack and unpack, respectively.
 
 === Structured text
 Structured text refers largely to object notation and markup, such as JSON, YAML, and XML. The basic structured text context provider is the //markup// type.
@@ -148,7 +148,7 @@ While this may be used as the basing for numbers, the format must contain a sing
 scanf itself provides a list basic value of what it matched, such that index 0 is the first matching %-specifier, etc.
 
 == Filing
-Filing contexts offer whole files. This can be thought of as essentially an archive or a folder. The basic filing context provider is the //folder// type.
+Filing contexts offer whole files. This can be thought of as essentially an archive or a folder. Struct types which can be used in a filing context are called //stringifiable// types. They must define the methods //to_file// and //from_file// in order to pack and unpack, respectively. The basic filing context provider is the //folder// type.
 
 It provides the locator key //base// which is the filename (including path as appropriate) and the optional encoding key //type// which specifies the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.
 

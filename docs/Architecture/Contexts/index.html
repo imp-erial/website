@@ -38,7 +38,7 @@
 
 <h2><a name="Binary">Binary</a></h2>
 
-<p>As the name implies, they provide access to binary data. Struct types which can be used as children of a binary context are called <em>serializable</em> types. They must define the methods <em>serialize</em> and <em>unserialize</em> in order to pack and unpack, respectively. The basic binary context provider is the <em>bin</em> type.</p>
+<p>As the name implies, they provide access to binary data. Struct types which can be used in a binary context are called <em>serializable</em> types. They must define the methods <em>serialize</em> and <em>unserialize</em> in order to pack and unpack, respectively. The basic binary context provider is the <em>bin</em> type.</p>
 
 <p>The locator keys defined by binary contexts are:</p>
 
@@ -84,7 +84,7 @@
 </ul>
 <h2><a name="Textual">Textual</a></h2>
 
-<p>Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). While there should be a decent amount of pre-defined structured text parsers, it should also be possible to declare your own in MPRL, but this process hasn't yet been defined.</p>
+<p>Textual contexts provide string data. They may either be structured text (like XML) or unstructured text (like TXT). Struct types which can be used in a textual context are called <em>stringifiable</em> types. They must define the methods <em>stringify</em> and <em>parse</em> in order to pack and unpack, respectively.</p>
 
 <h3><a name="Structured_text">Structured text</a></h3>
 
@@ -227,7 +227,7 @@
 
 <h2><a name="Filing">Filing</a></h2>
 
-<p>Filing contexts offer whole files. This can be thought of as essentially an archive or a folder. The basic filing context provider is the <em>folder</em> type.</p>
+<p>Filing contexts offer whole files. This can be thought of as essentially an archive or a folder. Struct types which can be used in a filing context are called <em>stringifiable</em> types. They must define the methods <em>to_file</em> and <em>from_file</em> in order to pack and unpack, respectively. The basic filing context provider is the <em>folder</em> type.</p>
 
 <p>It provides the locator key <em>base</em> which is the filename (including path as appropriate) and the optional encoding key <em>type</em> which specifies the mimetype. If the context has a strict ordering of files, then the children are linearly ordered.</p>
 
