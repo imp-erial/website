@@ -10,9 +10,7 @@
 </head>
 <body>
 <div class="breadcrumbs"><span class="breadcrumb"><a href="../../Architecture">Architecture</a></span><span class="breadcrumb">Contexts</span></div>
-<ol>
-    <li><a href="#Contexts">Contexts</a></li>
-<ol>
+<div class="toc"><div class="toc-header">Contents</div><ol>
     <li><a href="#Binary">Binary</a></li>
     <li><a href="#Textual">Textual</a></li>
 <ol>
@@ -30,8 +28,7 @@
 </ol>
     <li><a href="#Filing">Filing</a></li>
 </ol>
-</ol>
-<h1><a name="Contexts">Contexts</a></h1>
+</div><h1><a name="Contexts">Contexts</a></h1>
 
 <p>Context providers are structs which provide a new view of the data. They are packable structs themselves which have their own keys for extracting the context, then they transform it (probably) and provide the new data for its children to use. They define locator keys based on what kind of context they provide.</p>
 

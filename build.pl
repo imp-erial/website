@@ -39,7 +39,7 @@ creole_link \&mylink;
 
 # Handle custom stuff.
 sub myplugin {
-	$_[0] =~ s/^TOC(?:\s+(.*))?/make_toc($1)/es or
+	$_[0] =~ s/^TOC(?:\s+(?:(\d+)\s+)?(.*))?/make_toc($2,$1)/es or
 	$_[0] =~ s/^table(?: +(.+))?$([\s\S]+)/make_table($1,$2)/me or
 	$_[0] =~ s%^code(?: +(\S+))? *$\r?\n([\s\S]+)%make_code($1,$2)%me or
 	$_[0] =~ s/^crumbs (.*)/make_crumbs($1)/e or
@@ -55,7 +55,8 @@ $current_doc = '';
 sub make_toc {
 	# Create a table of contents for the given document or for the current one.
 	my $doc;
-	my ($files, $indent) = @_;
+	my ($files, $limit, $indent) = @_;
+	$limit -= length($indent) if ($limit);
 	if ($files) {
 		$files =~ s/^\s+|\s+$//g;
 		my @docs = split(/\s+/, $files);
@@ -65,18 +66,19 @@ sub make_toc {
 			print "  For use in file: $current_fn\n" if $verbose >= 2;
 			my $d = read_file($x, binmode => ':utf8');
 			$x =~ s/\.[^.]+$//;
-			$d =~ s/^(=+) *(.*)$|^(?:.*<<TOC\s+([^\s>][^>]*?)\s*>>.*|.*)(?:\r?\n|\r|\z)/$3 ? make_toc("$3", "$indent#") : make_toc_bit($indent . $1, $2, "$x#")/mge;
+			$d =~ s/^(={1,$limit})(?!=) *(.*)$|^(?:.*<<TOC\s+([^\s>][^>]*?)\s*>>.*|.*)(?:\r?\n|\r|\z)/$3 ? make_toc("$3", $limit, "$indent#") : make_toc_bit($indent . $1, $2, "$x#")/mge;
 			$d =~ s/\n*\z/\n/;
 			$doc .= "$d";
 		}
 	} else {
+		$limit -= 1 if ($limit);
 		$doc = $current_doc;
-		$doc =~ s/^(=+) *(.*)$|^.*(\r?\n|\r|\z)/make_toc_bit($indent . $1, $2, '#')/mge;
+		$doc =~ s/^=(={1,$limit})(?!=) *(.*)$|^.*(\r?\n|\r|\z)/make_toc_bit($indent . $1, $2, '#')/mge;
 		$doc =~ s/\n*\z/\n/;
 	}
 	return $doc if $indent;
 
-	# Make every level incriment by one at most.
+	# Make every level increment by one at most.
 	$doc =~ /^(#+)/;
 	my $expected = 1; my $got = length $1;
 	my @lines = split(/\n/, $doc);
@@ -91,7 +93,8 @@ sub make_toc {
 		$line =~ s/^#$diff// if $diff;
 		$doc .= "$line\n";
 	}
-	return creole_parse($doc);
+	return creole_parse($doc) if $files;
+	return '<div class="toc"><div class="toc-header">Contents</div>' . creole_parse($doc) . '</div>';
 }
 
 sub make_toc_bit {

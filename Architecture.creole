@@ -2,7 +2,7 @@
 
 Some portion of what's described here is not yet implemented, however the goal here is to represent what is or will be implemented. If, once implemented, the design is somewhat different, this documentation should be updated to reflect it.
 
-<<TOC
+<<TOC 3
 Architecture/Overview.creole
 Architecture/MPRL.creole
 Architecture/Link_Map.creole

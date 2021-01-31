@@ -67,3 +67,26 @@ tt {
 .highlight-bracket {
 	background-color: purple;
 }
+
+.toc {
+	width: 25%;
+	border: 1px solid #666;
+	border-radius: 20px;
+	margin: 18px 0px 0px 20px;
+}
+
+.toc-header {
+	text-align: center;
+	font-size: large;
+	font-style: italic;
+	font-weight: bold;
+	margin-top: 8px;
+}
+
+.toc-header::before {
+	content: "«"
+}
+
+.toc-header::after {
+	content: "»"
+}
