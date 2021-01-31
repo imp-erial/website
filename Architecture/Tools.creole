@@ -4,7 +4,7 @@
 <<TOC>>
 
 = Tools
-* Imperial Exchange: is the basic tool that shuffles data between binary and exported without modifying it in the middle. It can make a binary from an MPRL and data (padding any midspace with 00s) and provide an exchange file. 
+* [[Architecture/Tools/Exchange|Imperial Exchange]]: is the basic tool that shuffles data between binary and exported without modifying it in the middle. It can also create a binary from an MPRL and data (padding any midspace with 00s). 
 
 == Ideas, hopes, dreams
 These were written some time ago and may not represent current hopes or coherent designs. But they sound nice and I named them, so I don't want to lose the information, in case I ever intend to design something in the spirit of one of these.
