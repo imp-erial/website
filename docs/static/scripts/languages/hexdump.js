@@ -5,7 +5,7 @@ Category: unix utilities
 */
 
 hljs.registerLanguage("hexdump", function (hljs) {
-	var HEADER = {
+	let HEADER = {
 		begin: /^#+/, end: /$/,
 		className: 'title',
 		contains: [
@@ -15,7 +15,7 @@ hljs.registerLanguage("hexdump", function (hljs) {
 			}
 		]
 	};
-	var LINE = {
+	let LINE = {
 		begin: /^[0-9a-fA-F]+/, end: /$/,
 		returnBegin: true,
 		contains: [

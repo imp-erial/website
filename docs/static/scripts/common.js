@@ -1,5 +1,5 @@
 var base = $('script[src$="common.js"]').attr("src").replace("common.js", "");
-var languages = ["json", "python", "mprl", "hexdump"];
+var languages = ["json", "python", "mprl", "hexdump", "yabnf"];
 
 var count = 0;
 function retr() {

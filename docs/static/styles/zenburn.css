@@ -58,6 +58,7 @@ based on dark.css by Ivan Sagalaev
 
 .hljs-deletion,
 .hljs-string,
+.hljs-regexp,
 .hljs-built_in,
 .hljs-builtin-name {
   color: #cc9393;
