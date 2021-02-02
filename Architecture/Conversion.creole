@@ -1,0 +1,62 @@
+<<import head.html Architecture - Conversion>>
+
+<<crumbs Architecture -> Conversion>>
+<<TOC>>
+
+= Conversion
+Conversion or coercion changes one type into another. This is different from a value having multiple basic data types as the values on either side of the conversion are not considered to be equal, only related.
+
+Example: Within the //size// type, "short" and 2 have the same value. Retrieving the string form of a size value may return "short" and if so, retrieving the number form of the same size value would return 2. However, normally, 2 and "2" do not have the same value but are rather alternate representations of the data which can be coerced into each other.
+
+The conversion system can be used for complex types as well, like //graphic// to //png// or for lossy operations like //wav// to //mp3//.
+
+These conversions are done by methods called mediators which are knowledgable about the source and target types enough to perform the conversion and establish [[Architecture/Link Map|links]] between the data. They should be able to advertise what they convert and how well, as well, so that an external system may find paths from one type to another, in the event that there are no direct conversions.
+
+Mediators can be defined by the source or target class as well as externally. Mediators may define a meta block with keys to contextualize the conversion with static data only.
+
+== Conversion examples
+Here we look at some theoretical mediations which do not necessarily have to exist but can serve to explain the system.
+
+Assume we had a mediator for converting a //graphic// to //string// which would format the data like what we used to call ASCII art (but now often contains Unicode characters). This is clearly a lossy conversion, but that shouldn't limit someone from doing it. In this example, the author converts a game sprite to such a string:
+
+{{{
+sprite -> graphic       -> string
+width  -> width      \ 
+height -> height      \
+data   -> data       --+-> one row per line, one pixel per char
+          pixel = 0bi /    index -> char map is style
+          palette       -x
+}}}
+
+Here we can see that the color information stored in the palette is lost, but everything else combines to form a specific string form. Although this could be converted back to a B&W image or similar, //string// itself does not only represent graphic data, so the mediator would have to be explicitly requested (in any context where it could have otherwise been implied).
+
+When a conversion chain like this is used, lost data can be forwarded to the next mediator in the chain, if that mediator can handle it. In this next example, we consider a mediator to //base64// which accepts all serializable types and a mediator to //json// which accepts everything, including lost data.
+
+{{{
+graphic      -> base64                -> json
+width        --------------------------> width
+height       --------------------------> height
+data      --+-> base64 encoded pixels -> data
+pixel = 0bi /
+palette    /
+}}}
+
+This is a fully reversible conversion, whereas simply converting graphic to base64 would have lost the dimensions.
+
+== Value proxying
+Conversions are typically done by applications between something declared in a MPRL file to something that wasn't. However, value proxying is done entirely in a MPRL file, while ideally using the same system.
+
+An example of making such a declaration would be:
+
+<<code mprl
+data Example {
+	xlength: [number, 1]
+	xvalue: [number(string), @this.xlength]
+}
+>>
+
+//xvalue// here is describing a situation where the binary contains a //string// of size //xlength// which contains ANSI digits, and the author wants //xvalue// to contain the //number// form of that value. Remember, the idea is to unpack inside first; this is why the //string// is what's contained in the binary.
+
+This is called a value proxy because it proxies the value through a chain of conversions such that each member of the chain contains the value in its own type when that member is retrieved. That is, say the binary conatined the string **213**, then ##@Example.xvalue## refers to the //number// ## 213##, and ##@Example.xvalue.data## refers to the //string// ##"213"##. If an application does ##Example.set("xvalue", 3)## then ##@Example.xvalue.data## will refer to the //string// ##"3"## instead, having the data propagate down the chain. Similarly, if an application does ##Example.set(["xvalue", "data"], "44")## then the data will be propagated up the chain such that ##@Example.xvalue## now refers to the //number// ##44##.
+
+<<import foot.html>>

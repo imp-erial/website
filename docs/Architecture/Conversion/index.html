@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Imperial Exchange - Architecture</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+	<script type="text/javascript" src="../../static/scripts/common.js"></script>
+	<link rel="stylesheet" type="text/css" href="../../static/styles/common.css">
+	<link rel="stylesheet" type="text/css" href="../../static/styles/zenburn.css">
+</head>
+<body>
+<div class="breadcrumbs"><span class="breadcrumb"><a href="../../Architecture">Architecture</a></span><span class="breadcrumb">Conversion</span></div>
+<div class="toc"><div class="toc-header">Contents</div><ol>
+    <li><a href="#Conversion_examples">Conversion examples</a></li>
+    <li><a href="#Value_proxying">Value proxying</a></li>
+</ol>
+</div><h1><a name="Conversion">Conversion</a></h1>
+
+<p>Conversion or coercion changes one type into another. This is different from a value having multiple basic data types as the values on either side of the conversion are not considered to be equal, only related.</p>
+
+<p>Example: Within the <em>size</em> type, "short" and 2 have the same value. Retrieving the string form of a size value may return "short" and if so, retrieving the number form of the same size value would return 2. However, normally, 2 and "2" do not have the same value but are rather alternate representations of the data which can be coerced into each other.</p>
+
+<p>The conversion system can be used for complex types as well, like <em>graphic</em> to <em>png</em> or for lossy operations like <em>wav</em> to <em>mp3</em>.</p>
+
+<p>These conversions are done by methods called mediators which are knowledgable about the source and target types enough to perform the conversion and establish <a href="../../Architecture/Link_Map">links</a> between the data. They should be able to advertise what they convert and how well, as well, so that an external system may find paths from one type to another, in the event that there are no direct conversions.</p>
+
+<p>Mediators can be defined by the source or target class as well as externally. Mediators may define a meta block with keys to contextualize the conversion with static data only.</p>
+
+<h2><a name="Conversion_examples">Conversion examples</a></h2>
+
+<p>Here we look at some theoretical mediations which do not necessarily have to exist but can serve to explain the system.</p>
+
+<p>Assume we had a mediator for converting a <em>graphic</em> to <em>string</em> which would format the data like what we used to call ASCII art (but now often contains Unicode characters). This is clearly a lossy conversion, but that shouldn't limit someone from doing it. In this example, the author converts a game sprite to such a string:</p>
+
+<pre>
+sprite -&gt; graphic       -&gt; string
+width  -&gt; width      \ 
+height -&gt; height      \
+data   -&gt; data       --+-&gt; one row per line, one pixel per char
+          pixel = 0bi /    index -&gt; char map is style
+          palette       -x
+</pre>
+
+<p>Here we can see that the color information stored in the palette is lost, but everything else combines to form a specific string form. Although this could be converted back to a B&amp;W image or similar, <em>string</em> itself does not only represent graphic data, so the mediator would have to be explicitly requested (in any context where it could have otherwise been implied).</p>
+
+<p>When a conversion chain like this is used, lost data can be forwarded to the next mediator in the chain, if that mediator can handle it. In this next example, we consider a mediator to <em>base64</em> which accepts all serializable types and a mediator to <em>json</em> which accepts everything, including lost data.</p>
+
+<pre>
+graphic      -&gt; base64                -&gt; json
+width        --------------------------&gt; width
+height       --------------------------&gt; height
+data      --+-&gt; base64 encoded pixels -&gt; data
+pixel = 0bi /
+palette    /
+</pre>
+
+<p>This is a fully reversible conversion, whereas simply converting graphic to base64 would have lost the dimensions.</p>
+
+<h2><a name="Value_proxying">Value proxying</a></h2>
+
+<p>Conversions are typically done by applications between something declared in a MPRL file to something that wasn't. However, value proxying is done entirely in a MPRL file, while ideally using the same system.</p>
+
+<p>An example of making such a declaration would be:</p>
+
+<pre><code class="language-mprl">data Example &#123;
+	xlength: [number, 1]
+	xvalue: [number(string), @this.xlength]
+&#125;
+</code></pre>
+<p><em>xvalue</em> here is describing a situation where the binary contains a <em>string</em> of size <em>xlength</em> which contains ANSI digits, and the author wants <em>xvalue</em> to contain the <em>number</em> form of that value. Remember, the idea is to unpack inside first; this is why the <em>string</em> is what's contained in the binary.</p>
+
+<p>This is called a value proxy because it proxies the value through a chain of conversions such that each member of the chain contains the value in its own type when that member is retrieved. That is, say the binary conatined the string <strong>213</strong>, then <tt>@Example.xvalue</tt> refers to the <em>number</em> <tt> 213</tt>, and <tt>@Example.xvalue.data</tt> refers to the <em>string</em> <tt>"213"</tt>. If an application does <tt>Example.set("xvalue", 3)</tt> then <tt>@Example.xvalue.data</tt> will refer to the <em>string</em> <tt>"3"</tt> instead, having the data propagate down the chain. Similarly, if an application does <tt>Example.set(["xvalue", "data"], "44")</tt> then the data will be propagated up the chain such that <tt>@Example.xvalue</tt> now refers to the <em>number</em> <tt>44</tt>.</p>
+
+</body>
+</html>

@@ -17,7 +17,7 @@ The cache invalidation system exists for two purposes: reimporting from an alter
 * A donor's static data and all its clones'.
 * A calculated value and all contributors to that value.
 * A parent's packed form and all its children's.
-* A whole struct and whole form conversions of it.
+* A whole struct and whole form conversions of it. (Maybe?)
 ** For example, graphic → png.
 * Links between data and an applications use of it, if the application requests it.
 
@@ -52,12 +52,44 @@ def member_invalidated_or_updated(member, target, other_members):
 # Note that these following two functions do not cause invalidations.
 def get_target_value(target, members):
 	if not target.has_value:
+		best = 4
 		for member in members:
-			if member.has_value:
+			link = member.link_to[target]
+			if member.has_value and not link.is_irreversible:
 				value = target.convert_value_from(member)
-				if target.has_value:
-					assert value == target.value
-				target.value = value
+
+				if link.is_reversible:
+					if target.has_value:
+						assert value == target.value
+					if best > 1:
+						target.value = value
+						best = 1
+				elif link.is_recoverable:
+					if target.has_value:
+						# Some sort of insensitive comparison,
+						# the type should know what's unimportant.
+						assert value.insensitive_equals(target.value)
+					if best > 2:
+						target.value = value
+						best = 2
+				elif link.is_lossy:
+					if target.has_value:
+						# Fuzzy comparison, whatever that means for this type.
+						# This is obviously expensive...but it shouldn't come up often.
+						assert member.convert_value_from(target).is_similar_to(member.value)
+					if best > 3:
+						target.value = value
+						best = 3
+
+		assert target.has_value
+
+		for member in members:
+			if member.has_value and member.link_to[target].is_irreversible:
+				# Ensure that deriving irreversible members from the target value
+				# we found would create the same value as this member has.
+				# TODO: Which comparison is appropriate? Should it be configurable?
+				assert member.convert_value_from(target) == member.value
+
 	return target.value
 
 def get_member_value(member, target, other_members):
@@ -80,5 +112,17 @@ static Example {
 These keys do not enter into a single reference group, but two. ##{a, b, c}## and ##{b, d, e}##. This way, if this were a dynamic and //b// required some sort of conversion, //d// and //e// know to convert from //b// and not from, for example, //c// which might convert differently.
 
 Explicit, circular references are disallowed; at least for now. If the are implemented, they should error if the end of the cycle does not convert to the same value as the first. Likely, they could not be lazily evaluated.
+
+== Traversing the link map
+[[Architecture/Tools/Exchange|Imperial Exchange]] imposes some requirements on the link map, being the flagship product for this tool suite. It needs to be able to determine what data can be exported, what needs to be exported, and the quality of the export. It must also be able to enter the reference groups for each piece of data (if any) so that it can determine which to export and which not to, based on an algorithm defined in its design page.
+
+Thus a node:
+* Needs to know it's in a reference group.
+* Being the target, needs to know its members.
+* Being a non-target member, needs to know the target and the reversibility of its link to it.
+
+Additionally, when converting between types in order to perform the export, this information must be tracked from the declared struct to the final export. For instance, final export png.width which comes from a declared graphic struct's width must be able to look into the reference group of graphic.width and notify the group that it will be necessarily and reversibly exported. If data does not make it to the exported type and cannot be exported otherwise, Exchange will need to print a warning.
+
+What keys need to be exported can be determined by the keys requested by a ##to_file## method which are not requested by the ##from_file## method. Keys which are requested by both are considered transcoder keys, which would generally be declared statically (however, it's not required). The same is true of all keys which are in any pair of un/packing methods. All other keys can be assumed to be optionally exported but this assumption should be overridable.
 
 <<import foot.html>>

@@ -5,8 +5,9 @@ Some portion of what's described here is not yet implemented, however the goal h
 <<TOC 3
 Architecture/Overview.creole
 Architecture/MPRL.creole
-Architecture/Link_Map.creole
 Architecture/Contexts.creole
+Architecture/Link_Map.creole
+Architecture/Conversion.creole
 >>
 
 <<import foot.html>>

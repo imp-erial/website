@@ -67,7 +67,7 @@ static Example {
 }
 >>
 
-These may be referred to as a keystruct when they're the value of a key. However, they can also be declared as an element in a list or as the value in a different struct declaration using the basic version. This latter case is called [[Architecture/Value proxying|value proxying]].
+These may be referred to as a keystruct when they're the value of a key. However, they can also be declared as an element in a list or as the value in a different struct declaration using the basic version. This latter case is called [[Architecture/Conversion#Value proxying|value proxying]].
 
 <<code mprl
 static Example {

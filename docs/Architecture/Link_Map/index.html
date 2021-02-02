@@ -15,6 +15,7 @@
     <li><a href="#Ways_things_are_linked">Ways things are linked</a></li>
     <li><a href="#Common_links">Common links</a></li>
     <li><a href="#Reference_groups">Reference groups</a></li>
+    <li><a href="#Traversing_the_link_map">Traversing the link map</a></li>
 </ol>
 </div><h1><a name="Link_Map">Link Map</a></h1>
 
@@ -37,7 +38,7 @@
     <li>A donor's static data and all its clones'.</li>
     <li>A calculated value and all contributors to that value.</li>
     <li>A parent's packed form and all its children's.</li>
-    <li>A whole struct and whole form conversions of it.</li>
+    <li>A whole struct and whole form conversions of it. (Maybe?)</li>
 <ul>
     <li>For example, graphic &#8594; png.</li>
 </ul>
@@ -77,12 +78,44 @@ def member_invalidated_or_updated(member, target, other_members):
 # Note that these following two functions do not cause invalidations.
 def get_target_value(target, members):
 	if not target.has_value:
+		best = 4
 		for member in members:
-			if member.has_value:
+			link = member.link_to[target]
+			if member.has_value and not link.is_irreversible:
 				value = target.convert_value_from(member)
-				if target.has_value:
-					assert value == target.value
-				target.value = value
+
+				if link.is_reversible:
+					if target.has_value:
+						assert value == target.value
+					if best &gt; 1:
+						target.value = value
+						best = 1
+				elif link.is_recoverable:
+					if target.has_value:
+						# Some sort of insensitive comparison,
+						# the type should know what&#39;s unimportant.
+						assert value.insensitive_equals(target.value)
+					if best &gt; 2:
+						target.value = value
+						best = 2
+				elif link.is_lossy:
+					if target.has_value:
+						# Fuzzy comparison, whatever that means for this type.
+						# This is obviously expensive...but it shouldn&#39;t come up often.
+						assert member.convert_value_from(target).is_similar_to(member.value)
+					if best &gt; 3:
+						target.value = value
+						best = 3
+
+		assert target.has_value
+
+		for member in members:
+			if member.has_value and member.link_to[target].is_irreversible:
+				# Ensure that deriving irreversible members from the target value
+				# we found would create the same value as this member has.
+				# TODO: Which comparison is appropriate? Should it be configurable?
+				assert member.convert_value_from(target) == member.value
+
 	return target.value
 
 def get_member_value(member, target, other_members):
@@ -104,6 +137,21 @@ def get_member_value(member, target, other_members):
 These keys do not enter into a single reference group, but two. <tt>{a, b, c}</tt> and <tt>{b, d, e}</tt>. This way, if this were a dynamic and <em>b</em> required some sort of conversion, <em>d</em> and <em>e</em> know to convert from <em>b</em> and not from, for example, <em>c</em> which might convert differently.</p>
 
 <p>Explicit, circular references are disallowed; at least for now. If the are implemented, they should error if the end of the cycle does not convert to the same value as the first. Likely, they could not be lazily evaluated.</p>
+
+<h2><a name="Traversing_the_link_map">Traversing the link map</a></h2>
+
+<p><a href="../../Architecture/Tools/Exchange">Imperial Exchange</a> imposes some requirements on the link map, being the flagship product for this tool suite. It needs to be able to determine what data can be exported, what needs to be exported, and the quality of the export. It must also be able to enter the reference groups for each piece of data (if any) so that it can determine which to export and which not to, based on an algorithm defined in its design page.</p>
+
+<p>Thus a node:</p>
+
+<ul>
+    <li>Needs to know it's in a reference group.</li>
+    <li>Being the target, needs to know its members.</li>
+    <li>Being a non-target member, needs to know the target and the reversibility of its link to it.</li>
+</ul>
+<p>Additionally, when converting between types in order to perform the export, this information must be tracked from the declared struct to the final export. For instance, final export png.width which comes from a declared graphic struct's width must be able to look into the reference group of graphic.width and notify the group that it will be necessarily and reversibly exported. If data does not make it to the exported type and cannot be exported otherwise, Exchange will need to print a warning.</p>
+
+<p>What keys need to be exported can be determined by the keys requested by a <tt>to_file</tt> method which are not requested by the <tt>from_file</tt> method. Keys which are requested by both are considered transcoder keys, which would generally be declared statically (however, it's not required). The same is true of all keys which are in any pair of un/packing methods. All other keys can be assumed to be optionally exported but this assumption should be overridable.</p>
 
 </body>
 </html>
