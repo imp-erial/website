@@ -69,10 +69,15 @@ tt {
 }
 
 .toc {
-	width: 25%;
+	display: inline-block;
+	clear: both;
 	border: 1px solid #666;
 	border-radius: 20px;
 	margin: 18px 0px 0px 20px;
+}
+
+.toc > ol {
+	padding: 0px 15px;
 }
 
 .toc-header {
